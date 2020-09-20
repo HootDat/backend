@@ -6,6 +6,7 @@ import session from "express-session";
 import lusca from "lusca";
 import passport from "passport";
 import path from "path";
+import "reflect-metadata";
 import * as passportConfig from "./config/passport";
 import * as apiController from "./controllers/api";
 import * as contactController from "./controllers/contact";

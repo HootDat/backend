@@ -4,7 +4,12 @@
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
         "target": "es6",
+        "lib": [
+            "es6"
+        ],
         "strict": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
         "noImplicitAny": true,
         "moduleResolution": "node",
         "sourceMap": true,
