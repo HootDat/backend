@@ -1,24 +1,23 @@
-import express from "express";
-import compression from "compression";  // compresses requests
-import session from "express-session";
 import bodyParser from "body-parser";
-import lusca from "lusca";
+import compression from "compression"; // compresses requests
+import express from "express";
 import flash from "express-flash";
-import path from "path";
+import session from "express-session";
+import lusca from "lusca";
 import passport from "passport";
-import bluebird from "bluebird";
-import { MONGODB_URI, SESSION_SECRET } from "./util/secrets";
-
-
+import path from "path";
+// API keys and Passport configuration
+import * as passportConfig from "./config/passport";
+import * as apiController from "./controllers/api";
+import * as contactController from "./controllers/contact";
 // Controllers (route handlers)
 import * as homeController from "./controllers/home";
 import * as userController from "./controllers/user";
-import * as apiController from "./controllers/api";
-import * as contactController from "./controllers/contact";
+import { SESSION_SECRET } from "./util/secrets";
 
 
-// API keys and Passport configuration
-import * as passportConfig from "./config/passport";
+
+
 
 // Create Express server
 const app = express();
@@ -31,11 +30,13 @@ app.set("view engine", "pug");
 app.use(compression());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({
+app.use(
+  session({
     resave: true,
     saveUninitialized: true,
-    secret: SESSION_SECRET,
-}));
+    secret: SESSION_SECRET || "",
+  })
+);
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
@@ -46,6 +47,10 @@ app.use((req, res, next) => {
     next();
 });
 app.use((req, res, next) => {
+    if (!req.session) {
+      next();
+      return;
+    }
     // After successful login, redirect back to the intended page
     if (!req.user &&
     req.path !== "/login" &&

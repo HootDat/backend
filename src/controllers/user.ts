@@ -1,13 +1,13 @@
 import async from "async";
 import crypto from "crypto";
+import { NextFunction, Request, Response } from "express";
+import { check, sanitize, validationResult } from "express-validator";
+import { WriteError } from "mongodb";
 import nodemailer from "nodemailer";
 import passport from "passport";
-import { User, UserDocument, AuthToken } from "../models/User";
-import { Request, Response, NextFunction } from "express";
 import { IVerifyOptions } from "passport-local";
-import { WriteError } from "mongodb";
-import { check, sanitize, validationResult } from "express-validator";
 import "../config/passport";
+import { AuthToken, User, UserDocument } from "../models/User";
 
 /**
  * Login page.
@@ -48,7 +48,7 @@ export const postLogin = async (req: Request, res: Response, next: NextFunction)
         req.logIn(user, (err) => {
             if (err) { return next(err); }
             req.flash("success", { msg: "Success! You are logged in." });
-            res.redirect(req.session.returnTo || "/");
+            res.redirect(req.session?.returnTo || "/");
         });
     })(req, res, next);
 };
