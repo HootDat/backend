@@ -60,11 +60,12 @@ passport.use(new LocalStrategy({ usernameField: "email" }, (email, password, don
 /**
  * Sign in with Facebook.
  */
+// TODO: figure out this part
 passport.use(
   new FacebookStrategy(
     {
-      clientID: process.env.FACEBOOK_ID!,
-      clientSecret: process.env.FACEBOOK_SECRET!,
+      clientID: process.env.FACEBOOK_ID || "123",
+      clientSecret: process.env.FACEBOOK_SECRET || "123",
       callbackURL: "/auth/facebook/callback",
       profileFields: ["name", "email", "link", "locale", "timezone"],
       passReqToCallback: true,
@@ -128,17 +129,7 @@ passport.use(
                 user.facebook = profile.id;
                 user.tokens.push({ kind: "facebook", accessToken });
                 user.profile.name = `${profile!.name!.givenName} ${
-                  
-                  
-                  
-                  
-                  
                   profile!.name!.familyName
-                
-                
-                
-                
-                
                 }`;
                 user.profile.gender = profile._json.gender;
                 user.profile.picture = `https://graph.facebook.com/${profile.id}/picture?type=large`;
