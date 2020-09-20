@@ -6,22 +6,16 @@ import session from "express-session";
 import lusca from "lusca";
 import passport from "passport";
 import path from "path";
-// API keys and Passport configuration
 import * as passportConfig from "./config/passport";
 import * as apiController from "./controllers/api";
 import * as contactController from "./controllers/contact";
-// Controllers (route handlers)
 import * as homeController from "./controllers/home";
+import * as packController from "./controllers/pack";
 import * as userController from "./controllers/user";
 import { SESSION_SECRET } from "./util/secrets";
 
-
-
-
-
 // Create Express server
 const app = express();
-
 
 // Express configuration
 app.set("port", process.env.PORT || 3000);
@@ -89,6 +83,9 @@ app.post("/account/profile", passportConfig.isAuthenticated, userController.post
 app.post("/account/password", passportConfig.isAuthenticated, userController.postUpdatePassword);
 app.post("/account/delete", passportConfig.isAuthenticated, userController.postDeleteAccount);
 app.get("/account/unlink/:provider", passportConfig.isAuthenticated, userController.getOauthUnlink);
+
+app.get("/packs", packController.getPacks);
+app.post("/packs", packController.createPack);
 
 /**
  * API examples routes.

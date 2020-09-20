@@ -1,0 +1,16 @@
+GET http://localhost:3000/packs
+
+###
+
+POST http://localhost:3000/packs
+Content-Type: application/json
+
+{
+  "name": "name",
+  "categories": ["one", "two"],
+  "questions": [
+      "q1",
+      "q2"
+  ],
+  "public": false
+}
