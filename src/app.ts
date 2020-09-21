@@ -138,7 +138,7 @@ connecteToDatabase()
      */
     app.listen(config.port, () => {
       logger.info(
-        `App is running at http://localhost:${config.port} in ${config.environment} mode`,
+        `App is running at http://localhost:${config.port} in ${config.environment} mode`
       );
     });
   });

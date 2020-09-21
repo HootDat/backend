@@ -9,22 +9,18 @@
     "author": "Bowden Kelly",
     "license": "MIT",
     "scripts": {
-        "build": "npm run build-sass && npm run build-ts && npm run lint && npm run copy-static-assets",
-        "build-sass": "node-sass src/public/css/main.scss dist/public/css/main.css",
-        "build-ts": "tsc",
-        "copy-static-assets": "ts-node copyStaticAssets.ts",
-        "debug": "npm run build && npm run watch-debug",
-        "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
-        "serve": "node dist/server.js",
-        "serve-debug": "nodemon --inspect dist/server.js",
-        "start": "npm run serve",
+        "build": "tsc --incremental",
+        "serve": "node dist/app.js",
+        "clean": "rm -rf dist",
+        "clean-serve": "npm run clean && npm run build && npm run serve",
+
+        "start": "nodemon --ext ts,js,json --watch src --exec \"npm run build && npm run serve\"",
+
+        "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\"",
+        "lint:fix": "eslint \"**/*.{js,ts}\" --fix",
+
         "test": "jest --forceExit --coverage --verbose",
-        "watch": "concurrently -k -p \"[{name}]\" -n \"Sass,TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run watch-sass\" \"npm run watch-ts\" \"npm run watch-node\"",
-        "watch-debug": "concurrently -k -p \"[{name}]\" -n \"Sass,TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run watch-sass\" \"npm run watch-ts\" \"npm run serve-debug\"",
-        "watch-node": "nodemon dist/server.js",
-        "watch-sass": "node-sass -w src/public/css/main.scss dist/public/css/main.css",
-        "watch-test": "npm run test -- --watchAll",
-        "watch-ts": "tsc -w"
+        "watch-test": "npm run test -- --watchAll"
     },
     "dependencies": {
         "async": "^3.2.0",
@@ -90,12 +86,9 @@
         "concurrently": "^5.3.0",
         "eslint": "^6.8.0",
         "jest": "^24.9.0",
-        "node-sass": "^4.14.1",
         "nodemon": "^1.19.4",
-        "shelljs": "^0.8.4",
         "supertest": "^4.0.2",
         "ts-jest": "^24.3.0",
-        "ts-node": "^8.10.2",
         "typescript": "^3.9.7"
     }
 }
