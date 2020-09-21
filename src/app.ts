@@ -7,6 +7,7 @@ import lusca from "lusca";
 import passport from "passport";
 import path from "path";
 import "reflect-metadata";
+import { createConnection } from "typeorm";
 import * as passportConfig from "./config/passport";
 import * as apiController from "./controllers/api";
 import * as contactController from "./controllers/contact";
@@ -14,10 +15,9 @@ import * as homeController from "./controllers/home";
 import * as packController from "./controllers/pack";
 import * as userController from "./controllers/user";
 import config from "./init/config";
-import connecteToDatabase from "./init/database";
 import logger from "./init/logger";
 
-connecteToDatabase()
+createConnection()
   .catch((error) => {
     logger.error(`Failed to connect to database: ${error}`);
     process.exit(1);

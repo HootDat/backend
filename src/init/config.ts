@@ -24,13 +24,6 @@ interface Config {
   environment: "production" | "development";
   port: string;
   jwtSecret: string;
-  database: {
-    host: string;
-    port: number;
-    username: string;
-    password: string;
-    database: string;
-  };
 }
 
 const config: Config = {
@@ -46,32 +39,6 @@ const config: Config = {
    * JWT Secret.
    */
   jwtSecret: getValueOrExit("JWT_SECRET"),
-
-  /**
-   * Postgres connection options.
-   */
-  database: {
-    /**
-     * Database host.
-     */
-    host: getValueOrExit("POSTGRES_HOST"),
-    /**
-     * Database host port.
-     */
-    port: Number.parseInt(getValueOrExit("POSTGRES_PORT")),
-    /**
-     * Database username.
-     */
-    username: getValueOrExit("POSTGRES_USERNAME"),
-    /**
-     * Database password.
-     */
-    password: getValueOrExit("POSTGRES_PASSWORD"),
-    /**
-     * Database name to connect to.
-     */
-    database: getValueOrExit("POSTGRES_DATABASE"),
-  },
 
   // TODO: OAuth stuff
 };
