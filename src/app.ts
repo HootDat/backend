@@ -4,6 +4,7 @@ import errorHandler from "errorhandler";
 import express from "express";
 import flash from "express-flash";
 import lusca from "lusca";
+import morgan from "morgan";
 import passport from "passport";
 import path from "path";
 import "reflect-metadata";
@@ -17,7 +18,7 @@ createConnection()
     logger.error(`Failed to connect to database: ${error}`);
     process.exit(1);
   })
-  .then(() => {
+  .then((connection) => {
     // Create Express server
     const app = express();
 
@@ -32,6 +33,11 @@ createConnection()
     app.use(flash());
     app.use(lusca.xframe("SAMEORIGIN"));
     app.use(lusca.xssProtection(true));
+    if (config.environment === "production") {
+      app.use(morgan("combined"));
+    } else {
+      app.use(morgan("dev"));
+    }
     app.use((req, res, next) => {
       res.locals.user = req.user;
       next();
