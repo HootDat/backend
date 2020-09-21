@@ -3,9 +3,9 @@
         "module": "commonjs",
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
-        "target": "es6",
+        "target": "ES2017",
         "lib": [
-            "es6"
+            "ES2017"
         ],
         "strict": true,
         "emitDecoratorMetadata": true,
@@ -23,6 +23,6 @@
         }
     },
     "include": [
-        "src/**/*"
+        "src"
     ]
 }

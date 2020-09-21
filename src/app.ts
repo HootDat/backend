@@ -2,7 +2,6 @@ import bodyParser from "body-parser";
 import compression from "compression"; // compresses requests
 import express from "express";
 import flash from "express-flash";
-import session from "express-session";
 import lusca from "lusca";
 import passport from "passport";
 import path from "path";
@@ -13,25 +12,18 @@ import * as contactController from "./controllers/contact";
 import * as homeController from "./controllers/home";
 import * as packController from "./controllers/pack";
 import * as userController from "./controllers/user";
-import { SESSION_SECRET } from "./util/secrets";
+import config from "./util/config";
 
 // Create Express server
 const app = express();
 
 // Express configuration
-app.set("port", process.env.PORT || 3000);
+app.set("port", config.port);
 app.set("views", path.join(__dirname, "../views"));
 app.set("view engine", "pug");
 app.use(compression());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(
-  session({
-    resave: true,
-    saveUninitialized: true,
-    secret: SESSION_SECRET || "",
-  })
-);
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
