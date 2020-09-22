@@ -3,9 +3,11 @@
 
 import socketio from "socket.io";
 // @ts-ignore
-import redis from "./util/redis";
+import temp from "./util/redis";
+import { createGameRoom } from "./util/game";
+import { K_PRESENCE } from "./constants/redis";
 
-const REDIS_KEY_WS_PRESENCE = "ws-presence";
+const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
 const withAuthentication = (io: any) =>
   io.use(async (socket: any, next: any) => {
@@ -16,18 +18,22 @@ const withAuthentication = (io: any) =>
     socket.cId = cId;
 
     // register user presence which is a clientId -> socketId mapping
-    const oldSocketId = await redis.hget(REDIS_KEY_WS_PRESENCE, cId);
-    if (oldSocketId) {
-      io.to(oldSocketId).emit("room.leave", {});
-    }
-    await redis.hset(REDIS_KEY_WS_PRESENCE, cId, socketId);
+    const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
+    io.to(userData?.socketId).emit("socket.leave", {});
+    await redis.hmset(`${K_PRESENCE}-${cId}`, { socketId });
 
     next();
   });
 
 const useDefaultControllers = (socket: any, io: any) => {
-  socket.on("game.create", async (data: any) => {
-    console.log(data);
+  socket.on("game.create", async () => {
+    try {
+      const gameObj = await createGameRoom(socket.cId);
+      socket.emit("game.join", gameObj);
+    } catch (e) {
+      console.error("game.create error", e);
+      socket.emit("game.create.error");
+    }
   });
 
   socket.on("game.join", async (data: any) => {
@@ -42,15 +48,15 @@ const useDefaultControllers = (socket: any, io: any) => {
     console.log(
       `Socket (${socket.cId}, ${socket.id}) disconnected. Cleaning up.`,
     );
-    redis.hdel(REDIS_KEY_WS_PRESENCE, socket.cId);
+    redis.hdel(K_PRESENCE, socket.cId);
   });
 };
 
-const setupSocket = (server) => {
+const setupSocket = (server: any) => {
   const io = socketio(server);
   withAuthentication(io);
 
-  io.on("connection", (socket) => {
+  io.on("connection", (socket: any) => {
     console.log("Socket connection successful.");
     useDefaultControllers(socket, io);
   });
