@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-ignore */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+import socketio from "socket.io";
 // @ts-ignore
 import redis from "./util/redis";
 
@@ -44,4 +46,14 @@ const useDefaultControllers = (socket: any, io: any) => {
   });
 };
 
-export { withAuthentication, useDefaultControllers };
+const setupSocket = (server) => {
+  const io = socketio(server);
+  withAuthentication(io);
+
+  io.on("connection", (socket) => {
+    console.log("Socket connection successful.");
+    useDefaultControllers(socket, io);
+  });
+};
+
+export default setupSocket;
