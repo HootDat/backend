@@ -9,7 +9,17 @@ client.on("error", (error) => {
 
 const wrappedRedis = redis;
 
-const ops = ["get", "set", "hset", "hget", "hdel", "hmset", "hmget", "hsetnx"];
+const ops = [
+  "get",
+  "set",
+  "hset",
+  "hget",
+  "hdel",
+  "hgetall",
+  "hmset",
+  "hmget",
+  "hsetnx",
+];
 
 ops.forEach((op) => {
   wrappedRedis[op] = promisify(client[op]).bind(client);
