@@ -1,5 +1,6 @@
 import bodyParser from "body-parser";
 import compression from "compression"; // compresses requests
+import cors from "cors";
 import errorHandler from "errorhandler";
 import express from "express";
 import flash from "express-flash";
@@ -39,10 +40,7 @@ createConnection()
     } else {
       app.use(morgan("dev"));
     }
-    app.use((req, res, next) => {
-      res.locals.user = req.user;
-      next();
-    });
+    app.use(cors());
     app.use((req, res, next) => {
       if (!req.session) {
         next();
