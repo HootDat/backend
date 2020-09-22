@@ -1,16 +1,53 @@
+### Nuke Database
+POST http://localhost:3000/debug/nuke
+
+### Get all packs
+
 GET http://localhost:3000/packs
 
-###
+### Get all packs with offset
+
+GET http://localhost:3000/packs?offset=1
+
+### Get all packs with limit
+
+GET http://localhost:3000/packs?limit=1
+
+### Get all packs by categories
+
+GET http://localhost:3000/packs?categories[]=party
+
+### Create a pack
 
 POST http://localhost:3000/packs
 Content-Type: application/json
 
 {
-  "name": "name",
-  "categories": ["one", "two"],
+  "name": "Jon's Awesome Pack",
+  "categories": ["fun", "awesome", "party"],
   "questions": [
       "q1",
-      "q2"
+      "q2",
+      "q3"
   ],
   "public": false
+}
+
+### Delete a pack
+
+DELETE http://localhost:3000/packs/1
+
+### Edit a pack
+PUT http://localhost:3000/packs/1
+Content-Type: application/json
+
+{
+  "name": "Gary's Awesome Pack",
+  "categories": ["awesome", "party", "random"],
+  "questions": [
+      "q1",
+      "q2",
+      "q4"
+  ],
+  "public": true
 }

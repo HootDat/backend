@@ -66,11 +66,22 @@ createConnection()
       express.static(path.join(__dirname, "public"), { maxAge: 31557600000 })
     );
 
+    // TODO: remove this later
+    if (config.environment === "development") {
+      app.post("/debug/nuke", async (_, res) => {
+        await connection.dropDatabase();
+        await connection.synchronize();
+        res.status(200).send("Database nuked");
+      });
+    }
+
     /**
      * Primary app routes.
      */
     app.get("/packs", packController.getPacks);
     app.post("/packs", packController.createPack);
+    app.put("/packs/:id", packController.editPack);
+    app.delete("/packs/:id", packController.deletePack);
 
     /**
      * OAuth authentication routes. (Sign in)
