@@ -40,5 +40,5 @@ dist/**/*
 # ignore yarn.lock
 yarn.lock
 
-# ignore vim session
-session.vim
+# ignore vim session and any other .vim files
+*.vim
