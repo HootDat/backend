@@ -39,3 +39,6 @@ dist/**/*
 
 # ignore yarn.lock
 yarn.lock
+
+# Don't commit requests.http file; it is for debugging purposes
+requests.http
