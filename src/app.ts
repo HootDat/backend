@@ -8,12 +8,15 @@ import lusca from "lusca";
 import morgan from "morgan";
 import passport from "passport";
 import path from "path";
+import http from "http";
+
 import "reflect-metadata";
 import { createConnection } from "typeorm";
 import * as categoryController from "./controllers/category";
 import * as packController from "./controllers/pack";
 import config from "./init/config";
 import logger from "./init/logger";
+import setupSocket from "./socket";
 
 createConnection()
   .catch((error) => {
@@ -62,7 +65,7 @@ createConnection()
     });
 
     app.use(
-      express.static(path.join(__dirname, "public"), { maxAge: 31557600000 })
+      express.static(path.join(__dirname, "public"), { maxAge: 31557600000 }),
     );
 
     // TODO: remove this later
@@ -98,11 +101,13 @@ createConnection()
     app.use(errorHandler());
 
     /**
-     * Start Express server.
+     * Start Express server and setup socket.io server
      */
-    app.listen(config.port, () => {
+    const server = http.createServer(app);
+    setupSocket(server);
+    server.listen(config.port, () => {
       logger.info(
-        `App is running at http://localhost:${config.port} in ${config.environment} mode`
+        `App is running at http://localhost:${config.port} in ${config.environment} mode`,
       );
     });
   });
