@@ -1,19 +1,19 @@
 ### Nuke Database
 POST http://localhost:3000/debug/nuke
 
-### Get all packs
+### Get packs
 
 GET http://localhost:3000/packs
 
-### Get all packs with offset
+### Get packs with offset
 
 GET http://localhost:3000/packs?offset=1
 
-### Get all packs with limit
+### Get packs with limit
 
 GET http://localhost:3000/packs?limit=1
 
-### Get all packs by categories
+### Get packs by categories
 
 GET http://localhost:3000/packs?categories[]=party
 
@@ -51,3 +51,7 @@ Content-Type: application/json
   ],
   "public": true
 }
+
+### Get all categories
+
+GET http://localhost:3000/categories

@@ -9,6 +9,7 @@ import passport from "passport";
 import path from "path";
 import "reflect-metadata";
 import { createConnection } from "typeorm";
+import * as categoryController from "./controllers/category";
 import * as packController from "./controllers/pack";
 import config from "./init/config";
 import logger from "./init/logger";
@@ -82,6 +83,8 @@ createConnection()
     app.post("/packs", packController.createPack);
     app.put("/packs/:id", packController.editPack);
     app.delete("/packs/:id", packController.deletePack);
+
+    app.get("/categories", categoryController.getCategories);
 
     /**
      * OAuth authentication routes. (Sign in)
