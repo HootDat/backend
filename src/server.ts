@@ -3,7 +3,7 @@ import http from "http";
 import socketio from "socket.io";
 
 import app from "./app";
-import defaultControllers from "./controllers/socket";
+import { withAuthentication, useDefaultControllers } from "./socket";
 
 /**
  * Error Handler. Provides full stack - remove for production
@@ -25,9 +25,11 @@ server.listen(app.get("port"), () => {
   console.log("  Press CTRL-C to stop\n");
 });
 
+withAuthentication(io);
+
 io.on("connection", (socket) => {
   console.log("Socket connection successful.");
-  defaultControllers(socket, io);
+  useDefaultControllers(socket, io);
 });
 
 export default server;

@@ -6,6 +6,7 @@
         "target": "es6",
         "strict": true,
         "noImplicitAny": true,
+        "allowJs": true,
         "moduleResolution": "node",
         "sourceMap": true,
         "outDir": "dist",
