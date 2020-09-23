@@ -10,8 +10,6 @@
 - assume tab 1 is the older tab and tab 2 is the newer tab
 - latest tab (tab 2) has priority and keeps the socket connection (proceeding as per normal, as if there were no multilog) whereas tab 1 receives this event and should handle it with a popup/msg that says you've got another tab open. Copy telegram/whatsapp format for opening multiple tabs.
 
-#### emit("game.create"):
-
 ## Create game: `game.create`
 
 ### client:
