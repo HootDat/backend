@@ -177,6 +177,9 @@ const updateQuestionsGameEvent = async (
 const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
 
+  // TODO: put all these checks in a function where the
+  // checks are passed via a parameterized object
+
   // if host is not cId, error
   if (gameObj.host !== cId) throw new Error("Not authorized.");
 
@@ -200,12 +203,52 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   playerCIds.forEach((_cId) => {
     getSocketIdsMulti.hgetall(_cId);
   });
-  const socketIds: any = await getSocketIdsMulti.exec();
+  const socketIds = (await redis.executeMulti(getSocketIdsMulti)).map(
+    ({ socketId }: { socketId: any }): any => socketId,
+  );
 
   // make version of game object specific to each player
   return playerCIds.map((_cId, i) => ({
     socketId: socketIds[i],
-    gameObj: sanitizeGameObjectForPlayer(cId, gameObj),
+    gameObj: sanitizeGameObjectForPlayer(_cId, gameObj),
+  }));
+};
+
+const playerAnswerGameEvent = async (
+  cId: string,
+  answer: string,
+  gameCode: string,
+): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // TODO: put all these checks in a function where the
+  // checks are passed via a parameterized object
+
+  // if cId not answerer
+  if (cId != gameObj.currAnswerer) throw new Error("Not authorized.");
+
+  // if wrong phase
+  if (gameObj.phase !== PHASE_QN_ANSWER) throw new Error("Wrong phase.");
+
+  gameObj.phase = PHASE_QN_GUESS;
+  gameObj.answer = answer;
+  const playerCIds = Object.keys(gameObj.players);
+
+  await serializeAndUpdateGameObject(gameCode, gameObj);
+
+  // get socketId of all players in one redis transaction
+  const getSocketIdsMulti = redis.multi();
+  playerCIds.forEach((_cId) => {
+    getSocketIdsMulti.hgetall(_cId);
+  });
+  const socketIds = (await redis.executeMulti(getSocketIdsMulti)).map(
+    ({ socketId }: { socketId: any }): any => socketId,
+  );
+
+  // make version of game object specific to each player
+  return playerCIds.map((_cId, i) => ({
+    socketId: socketIds[i],
+    gameObj: sanitizeGameObjectForPlayer(_cId, gameObj),
   }));
 };
 
@@ -217,4 +260,5 @@ export {
   registerUserOnline,
   updateQuestionsGameEvent,
   startGameEvent,
+  playerAnswerGameEvent,
 };
