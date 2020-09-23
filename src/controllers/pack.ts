@@ -1,10 +1,14 @@
 import { NextFunction, Request, Response } from "express";
+import Joi from "joi";
 import { getCustomRepository } from "typeorm";
-import { Pack } from "../entity/Pack";
-import { PackRepository } from "../repositories/PackRepository";
+import { PackQueryScope, PackRepository } from "../repositories/PackRepository";
 
-// TODO: auth
-// TODO: querystrings
+const getPacksRequestSchema = Joi.object({
+  categories: Joi.array().items(Joi.string()),
+  offset: Joi.number().integer(),
+  limit: Joi.number().integer(),
+  scope: Joi.string().allow("all", "community", "own"),
+}).unknown();
 
 export const getPacks = async (
   req: Request,
@@ -12,46 +16,37 @@ export const getPacks = async (
   next: NextFunction
 ) => {
   try {
-    const categoryNames: string[] = [];
-    if (
-      Array.isArray(req.query.categories) &&
-      req.query.categories.length > 0
-    ) {
-      req.query.categories.forEach((category: unknown) => {
-        if (typeof category === "string") {
-          categoryNames.push(category);
-        }
-      });
-    } else if (typeof req.query.categories === "string") {
-      categoryNames.push(req.query.categories);
+    const { value: body, error } = getPacksRequestSchema.validate(req.query);
+    if (error) {
+      return res.status(400).send(error.message);
     }
 
-    let offset = 0;
-    if (req.query.offset && typeof req.query.offset === "string") {
-      offset = parseInt(req.query.offset);
-    }
-
-    let limit = 0;
-    if (req.query.limit && typeof req.query.limit === "string") {
-      limit = parseInt(req.query.limit);
-    }
+    const categories: string[] | undefined = body.categories;
+    const offset: number | undefined = body.offset;
+    const limit: number | undefined = body.limit;
+    const userID = req.jwt?.userID;
+    const scope: PackQueryScope | undefined = body.scope;
 
     const packRepository = getCustomRepository(PackRepository);
-    let packs: Pack[];
-    if (categoryNames.length > 0) {
-      packs = await packRepository.findByCategories(
-        categoryNames,
-        offset,
-        limit
-      );
-    } else {
-      packs = await packRepository.findWithPagination(offset, limit);
-    }
+    const packs = await packRepository.findWithPagination(
+      offset,
+      limit,
+      userID,
+      scope,
+      categories
+    );
     res.json(packs);
   } catch (error) {
     next(error);
   }
 };
+
+const createPackRequestSchema = Joi.object({
+  name: Joi.string().required(),
+  categories: Joi.array().items(Joi.string()),
+  questions: Joi.array().items(Joi.string()),
+  public: Joi.boolean().required(),
+}).unknown();
 
 export const createPack = async (
   req: Request,
@@ -59,9 +54,24 @@ export const createPack = async (
   next: NextFunction
 ) => {
   try {
-    const { name, categories, questions, public: isPublic } = req.body;
+    const userID = req.jwt?.userID;
+    if (!userID) {
+      return res.sendStatus(401);
+    }
+
+    const { value: body, error } = createPackRequestSchema.validate(req.body);
+    if (error) {
+      return res.status(400).send(error.message);
+    }
+
+    const name: string = body.name;
+    const categories: string[] | undefined = body.categories;
+    const questions: string[] | undefined = body.questions;
+    const isPublic: boolean = body.public;
+
     const packRepository = getCustomRepository(PackRepository);
     const savedPack = await packRepository.createFromRequest(
+      userID,
       name,
       categories,
       questions,
@@ -73,25 +83,78 @@ export const createPack = async (
   }
 };
 
+const editPackRequestSchema = Joi.object({
+  name: Joi.string(),
+  categories: Joi.array().items(Joi.string()),
+  questions: Joi.array().items(Joi.string()),
+  public: Joi.boolean(),
+  // the updatedAt timestamp is needed to prevent the client from
+  // overwriting a pack that has changed on the server
+  updatedAt: Joi.string().isoDate().required(),
+}).unknown();
+
 export const editPack = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { name, categories, questions, public: isPublic } = req.body;
+    // Make sure the user is authorised
+    const userID = req.jwt?.userID;
+    if (!userID) {
+      return res.sendStatus(401);
+    }
+    const packID = req.params.id;
+    if (!packID) {
+      return res.sendStatus(400);
+    }
+    const pack = await getCustomRepository(PackRepository).findOne(packID);
+    if (!pack) {
+      return res.status(400).send("pack does not exist");
+    }
+    // Only the owner can edit the pack
+    if (pack.owner?.id !== userID) {
+      return res.sendStatus(401);
+    }
+
+    // Read the body
+    const { value: body, error } = editPackRequestSchema.validate(req.body);
+    if (error) {
+      return res.status(400).send(error.message);
+    }
+
+    const name: string | undefined = body.name;
+    const categories: string[] | undefined = body.categories;
+    const questions: string[] | undefined = body.questions;
+    const isPublic: boolean | undefined = body.public;
+    const updatedAt: Date = new Date(body.updatedAt);
+    console.log(body);
+    console.log(body.updated);
+    console.log(updatedAt);
+
     const packRepository = getCustomRepository(PackRepository);
-    const updatedPack = await packRepository.updateFromRequest(
-      req.params.id,
+    const updateResult = await packRepository.updateFromRequest(
+      updatedAt,
+      packID,
       name,
       categories,
       questions,
       isPublic
     );
-    if (updatedPack === undefined) {
-      res.status(400).send("This pack does not exist");
+    if (updateResult === "pack does not exist") {
+      return res.status(400).json({ message: "pack does not exist" });
+    } else if (
+      updateResult instanceof Object &&
+      "updatedCopy" in updateResult
+    ) {
+      return res.json(updateResult.updatedCopy);
+    } else if (updateResult instanceof Object && "serverCopy" in updateResult) {
+      return res.status(400).json({
+        message: "server has a newer copy",
+        serverCopy: updateResult.serverCopy,
+      });
     } else {
-      res.json(updatedPack);
+      return res.status(500);
     }
   } catch (error) {
     next(error);
@@ -104,15 +167,26 @@ export const deletePack = async (
   next: NextFunction
 ) => {
   try {
-    const packRepository = getCustomRepository(PackRepository);
-    const id = req.params.id;
-    const pack = await packRepository.findOne(id);
-    if (pack === undefined) {
-      res.status(400).send("This pack does not exist");
-    } else {
-      await packRepository.remove(pack);
-      res.sendStatus(204);
+    // Make sure the user is authorised
+    const userID = req.jwt?.userID;
+    if (!userID) {
+      return res.sendStatus(401);
     }
+    const packID = req.params.id;
+    if (!packID) {
+      return res.sendStatus(400);
+    }
+    const packRepository = getCustomRepository(PackRepository);
+    const pack = await packRepository.findOne(packID);
+    if (!pack) {
+      return res.status(400).send("pack does not exist");
+    }
+    // Only the owner can delete the pack
+    if (pack.owner?.id !== userID) {
+      return res.sendStatus(401);
+    }
+    await packRepository.remove(pack);
+    res.sendStatus(204);
   } catch (error) {
     next(error);
   }

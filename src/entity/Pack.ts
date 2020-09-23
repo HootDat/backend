@@ -25,8 +25,8 @@ export class Pack extends BaseEntity {
   @Column()
   public?: boolean;
 
-  @ManyToOne(() => User, (creator) => creator.packs)
-  creator?: User;
+  @ManyToOne(() => User, (owner) => owner.packs, { eager: true })
+  owner?: User;
 
   @OneToMany(() => Question, (question) => question.pack, {
     eager: true,

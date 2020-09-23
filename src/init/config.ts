@@ -24,6 +24,12 @@ interface Config {
   environment: "production" | "development";
   port: string;
   jwtSecret: string;
+  oAuth: {
+    facebook: {
+      appID: string;
+      secret: string;
+    };
+  };
 }
 
 const config: Config = {
@@ -40,7 +46,15 @@ const config: Config = {
    */
   jwtSecret: getValueOrExit("JWT_SECRET"),
 
-  // TODO: OAuth stuff
+  /**
+   * OAuth credentials.
+   */
+  oAuth: {
+    facebook: {
+      appID: getValueOrExit("FACEBOOK_ID"),
+      secret: getValueOrExit("FACEBOOK_SECRET"),
+    },
+  },
 };
 
 export default config;

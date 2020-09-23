@@ -40,5 +40,8 @@ dist/**/*
 # ignore yarn.lock
 yarn.lock
 
+# Don't commit requests.http file; it is for debugging purposes
+requests.http
+
 # ignore vim session and any other .vim files
 *.vim
