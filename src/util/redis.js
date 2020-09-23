@@ -10,7 +10,6 @@ client.on("error", (error) => {
 const wrappedRedis = client;
 
 const ops = [
-  "exec", // idk if this will work
   "get",
   "mget",
   "set",
@@ -27,17 +26,24 @@ ops.forEach((op) => {
   wrappedRedis[op] = promisify(client[op]).bind(client);
 });
 
+wrappedRedis.executeMulti = (redisMulti) =>
+  new Promise((resolve, reject) => {
+    redisMulti.exec((err, replies) => {
+      if (err) return reject(err);
+      return resolve(replies);
+    });
+  });
+
 export default wrappedRedis;
 
-const testFn = async () => {
-  const testMulti = wrappedRedis.multi();
-  testMulti.get("1");
-  testMulti.get("2");
-  testMulti.get("3");
-  testMulti.exec((err, replies) => {
-    console.log("err", err);
-    console.log("replies", replies);
-  });
-};
+// for testing, pls ignore
+// const testFn = async () => {
+//   const testMulti = wrappedRedis.multi();
+//   testMulti.hgetall("game-539144");
+//   testMulti.hgetall("user-abc123");
+//   testMulti.hgetall("user-testing1");
+//   const res = await executeMulti(testMulti);
+//   console.log(res);
+// };
 
-testFn();
+// testFn();
