@@ -227,7 +227,8 @@ const useGameControllers = (socket: any, io: any) => {
         // if everyone has answered,
         // let's transition to PHASE_QN_RESULTS of this round
         if (
-          gameObj.results[gameObj.qnNum - 1].length === gameObj.players.length
+          gameObj.results[gameObj.qnNum - 1].length >=
+          Object.values(gameObj.players).length
         ) {
           gameObj = await roundEndGameEvent(gameCode);
           io.to(gameCode).emit("game.event.transition", gameObj);
