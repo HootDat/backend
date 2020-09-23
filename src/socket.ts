@@ -10,6 +10,7 @@ import {
   leaveGame,
   registerUserOffline,
   registerUserOnline,
+  updateQuestionsGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 
@@ -21,7 +22,11 @@ const withAuthentication = (io: any) =>
     const { id: socketId } = socket;
     if (!cId) return next(new Error("No cId provided."));
 
+    // update socket properties for easier bookkeeping
     socket.cId = cId;
+    socket.game = {
+      gameCode: null,
+    };
 
     // register user presence
     const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
@@ -47,12 +52,17 @@ const withAuthentication = (io: any) =>
       // before the "connection" event.
       socket.emit("game.join", gameObj);
       socket.join(gameCode);
+
+      // update socket property for easier bookkeeping
+      socket.game = {
+        gameCode,
+      };
     }
 
     next();
   });
 
-const useDefaultControllers = (socket: any, io: any) => {
+const useMetaGameControllers = (socket: any, io: any) => {
   const { cId, id: socketId } = socket;
 
   socket.on("game.create", async () => {
@@ -63,6 +73,11 @@ const useDefaultControllers = (socket: any, io: any) => {
       // tell client its joined a game, and put socket in game room
       socket.emit("game.join", gameObj);
       socket.join(gameCode);
+
+      // update socket property for easier bookkeeping
+      socket.game = {
+        gameCode,
+      };
     } catch (e) {
       console.error("game.create error", e);
       socket.emit("game.create.error");
@@ -84,6 +99,11 @@ const useDefaultControllers = (socket: any, io: any) => {
       socket.emit("game.join", gameObj);
       socket.join(gameCode);
 
+      // update socket property for easier bookkeeping
+      socket.game = {
+        gameCode,
+      };
+
       // tell everyone in the game (except self) that a new player has joined
       socket.to(gameCode).emit("game.event.player.join", playerObj);
     } catch (e) {
@@ -101,6 +121,11 @@ const useDefaultControllers = (socket: any, io: any) => {
       socket.emit("game.leave");
       socket.leave(gameCode);
 
+      // update socket property for easier bookkeeping
+      socket.game = {
+        gameCode: null,
+      };
+
       // update redis
       const playerObj = await leaveGame(cId, gameCode);
 
@@ -113,20 +138,57 @@ const useDefaultControllers = (socket: any, io: any) => {
   });
 
   socket.on("disconnect", async () => {
-    console.log(`Socket (${cId}, ${socketId}) disconnected.`);
+    try {
+      console.log(`Socket (${cId}, ${socketId}) disconnected.`);
 
-    const gameObj = await registerUserOffline(cId);
-    const {
-      gameCode,
-      players: { cId: playerObj },
-    } = gameObj;
+      const gameObj = await registerUserOffline(cId);
+      const {
+        gameCode,
+        players: { cId: playerObj },
+      } = gameObj;
 
-    // unsub socket from game room
-    socket.leave(gameCode);
+      // unsub socket from game room
+      socket.leave(gameCode);
 
-    // tell everyone in the game that this user went offline
-    socket.to(gameCode).emit("game.event.player.update", playerObj);
+      // update socket property for easier bookkeeping
+      socket.game = {
+        gameCode: null,
+      };
+
+      // tell everyone in the game that this user went offline
+      socket.to(gameCode).emit("game.event.player.update", playerObj);
+    } catch (e) {
+      console.log("disconnect error", e);
+    }
   });
+};
+
+const useGameControllers = (socket: any, io: any) => {
+  const { cId, id: socketId } = socket;
+
+  socket.on(
+    "game.event.questions.update",
+    async ({
+      gameCode,
+      questions,
+    }: {
+      gameCode: string;
+      questions: Array<any>;
+    }) => {
+      try {
+        const gameObj = await updateQuestionsGameEvent(
+          cId,
+          gameCode,
+          questions,
+        );
+
+        socket.to(gameCode).emit("game.event.questions.update", questions);
+      } catch (e) {
+        console.error("game.event.questions.update error", e);
+        socket.emit("game.event.questions.update.error");
+      }
+    },
+  );
 };
 
 const setupSocket = (server: any) => {
@@ -135,7 +197,8 @@ const setupSocket = (server: any) => {
 
   io.on("connection", (socket: any) => {
     console.log("Socket connection successful.");
-    useDefaultControllers(socket, io);
+    useMetaGameControllers(socket, io);
+    useGameControllers(socket, io);
   });
 };
 
