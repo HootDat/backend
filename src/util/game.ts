@@ -23,11 +23,20 @@ const isInUse = async (gameCode: string): Promise<boolean> => {
   }
 };
 
-const createGameObject = (gameCode: string, cId: string): any => ({
+const createBasePlayerObject = (cId: string): any => ({
+  cId,
+  online: true,
+  answers: [],
+  score: 0,
+});
+
+const createBaseGameObject = (gameCode: string, cId: string): any => ({
   gameCode,
   host: cId,
   phase: "lobby",
-  players: [{ cId, answers: [], score: 0 }],
+  qnNum: -1,
+  questions: [],
+  players: { [cId]: createBasePlayerObject(cId) },
 });
 
 const serializeGameObject = (gameObject: any): any => ({
@@ -40,21 +49,91 @@ const deserializeGameObject = (gameObjectSerialized: any): any => ({
   players: JSON.parse(gameObjectSerialized.players),
 });
 
-const createGameRoom = async (cId: string): Promise<string> => {
+const getAndDeserializeGameObject = async (gameCode: string): Promise<any> => {
+  const gameObj = await redis.hgetall(`${K_GAME}-${gameCode}`);
+  if (!gameObj) throw new Error("No such game exists.");
+
+  return deserializeGameObject(gameObj);
+};
+
+const mapPlayerToGame = async (cId: string, gameCode: string | null) => {
+  const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
+  await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
+};
+
+const createGame = async (cId: string): Promise<any> => {
   let gameCode = generateGameCode();
 
-  // loop till unique game code generated
+  // loop till unique game gameCode generated
   while (await isInUse(gameCode)) {
     gameCode = generateGameCode();
   }
 
-  const gameObj = createGameObject(gameCode, cId);
+  const gameObj = createBaseGameObject(gameCode, cId);
 
   await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
-  const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
-  await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
+  await mapPlayerToGame(cId, gameCode);
 
   return gameObj;
 };
 
-export { createGameRoom };
+const joinGame = async (cId: string, gameCode: string): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // add player to game and update game in redis
+  gameObj.players[cId] = createBasePlayerObject(cId);
+  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+
+  // create player->gameCode mapping
+  await mapPlayerToGame(cId, gameCode);
+};
+
+const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // remove player from game and update game in redis
+  gameObj.players[cId] = null;
+  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+
+  // remove player->gameCode mapping
+  await mapPlayerToGame(cId, null);
+};
+
+const registerUserOnline = async (
+  cId: string,
+  socketId: string,
+): Promise<any> => {
+  await redis.hmset(`${K_PRESENCE}-${cId}`, { socketId });
+  const { gameCode } = await redis.hgetall(`${K_PRESENCE}-${cId}`);
+  if (!gameCode) return {}; // not in game, we are done
+
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // set player online status to true and update game in redis
+  gameObj.players[cId].online = true;
+  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+
+  return gameObj;
+};
+
+const registerUserOffline = async (cId: string): Promise<any> => {
+  await redis.hmset(`${K_PRESENCE}-${cId}`, { socketId: null });
+  const { gameCode } = await redis.hgetall(`${K_PRESENCE}-${cId}`);
+  if (!gameCode) return {}; // not in game, we are done
+
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // set player online status to false and update game in redis
+  gameObj.players[cId].online = false;
+  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+
+  return gameObj;
+};
+
+export {
+  createGame,
+  joinGame,
+  leaveGame,
+  registerUserOffline,
+  registerUserOnline,
+};
