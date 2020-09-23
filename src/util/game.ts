@@ -4,6 +4,14 @@
 import temp from "./redis";
 import { randomIntFromInterval } from "./helpers";
 import { K_PRESENCE, K_GAME } from "../constants/redis";
+import {
+  PHASE_LOBBY,
+  PHASE_QN_ANSWER,
+  PHASE_QN_GUESS,
+  PHASE_QN_RESULTS,
+  ROLE_ANSWERER,
+  ROLE_GUESSER,
+} from "../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper
 
@@ -26,20 +34,20 @@ const isInUse = async (gameCode: string): Promise<boolean> => {
 const createBasePlayerObject = (cId: string): any => ({
   cId,
   name: "",
-  role: "",
   iconNum: -1,
   online: true,
-  answers: [],
-  score: 0,
 });
 
 const createBaseGameObject = (gameCode: string, cId: string): any => ({
   gameCode,
   host: cId,
-  phase: "lobby",
+  phase: PHASE_LOBBY,
   qnNum: -1,
   questions: [],
   players: { [cId]: createBasePlayerObject(cId) },
+  results: [],
+  currAnswerer: "",
+  currAnswer: "",
 });
 
 const serializeGameObject = (gameObject: any): any => ({
@@ -66,14 +74,8 @@ const serializeAndUpdateGameObject = (gameCode: string, gameObj: any) =>
 const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
   const sanitizedGameObj = {
     ...gameObj,
-    yourRole: gameObj.players[cId].role,
+    yourRole: gameObj.currAnswerer === cId ? ROLE_ANSWERER : ROLE_GUESSER,
   };
-
-  Object.keys(sanitizedGameObj.players).forEach((_cId) => {
-    if (_cId !== cId) {
-      delete sanitizedGameObj.players[_cId].role;
-    }
-  });
 
   return sanitizedGameObj;
 };
@@ -163,10 +165,48 @@ const updateQuestionsGameEvent = async (
   // if host is not cId, error
   if (gameObj.host !== cId) throw new Error("Not authorized.");
 
+  // if wrong phase
+  if (gameObj.phase !== PHASE_LOBBY) throw new Error("Wrong phase.");
+
   gameObj.questions = questions;
   await serializeAndUpdateGameObject(gameCode, gameObj);
 
   return sanitizeGameObjectForPlayer(cId, gameObj);
+};
+
+const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // if host is not cId, error
+  if (gameObj.host !== cId) throw new Error("Not authorized.");
+
+  // if wrong phase
+  if (gameObj.phase !== PHASE_LOBBY) throw new Error("Wrong phase.");
+
+  // if no questions
+  if (gameObj.questions.length === 0)
+    throw new Error("Game must have >= 1 questions to start.");
+
+  gameObj.phase = PHASE_QN_ANSWER;
+  const playerCIds = Object.keys(gameObj.players);
+  const numPlayers = playerCIds.length;
+  const curAnswerer = playerCIds[randomIntFromInterval(0, numPlayers - 1)];
+  gameObj.curAnswerer = curAnswerer;
+
+  await serializeAndUpdateGameObject(gameCode, gameObj);
+
+  // get socketId of all players in one redis transaction
+  const getSocketIdsMulti = redis.multi();
+  playerCIds.forEach((_cId) => {
+    getSocketIdsMulti.hgetall(_cId);
+  });
+  const socketIds: any = await getSocketIdsMulti.exec();
+
+  // make version of game object specific to each player
+  return playerCIds.map((_cId, i) => ({
+    socketId: socketIds[i],
+    gameObj: sanitizeGameObjectForPlayer(cId, gameObj),
+  }));
 };
 
 export {
@@ -176,4 +216,5 @@ export {
   registerUserOffline,
   registerUserOnline,
   updateQuestionsGameEvent,
+  startGameEvent,
 };
