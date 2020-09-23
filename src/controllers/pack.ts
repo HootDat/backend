@@ -18,7 +18,7 @@ export const getPacks = async (
   try {
     const { value: body, error } = getPacksRequestSchema.validate(req.query);
     if (error) {
-      return res.status(400).send(error);
+      return res.status(400).send(error.message);
     }
 
     const categories: string[] | undefined = body.categories;
@@ -61,7 +61,7 @@ export const createPack = async (
 
     const { value: body, error } = createPackRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error);
+      return res.status(400).send(error.message);
     }
 
     const name: string = body.name;
@@ -88,6 +88,9 @@ const editPackRequestSchema = Joi.object({
   categories: Joi.array().items(Joi.string()),
   questions: Joi.array().items(Joi.string()),
   public: Joi.boolean(),
+  // the updatedAt timestamp is needed to prevent the client from
+  // overwriting a pack that has changed on the server
+  updatedAt: Joi.string().isoDate().required(),
 }).unknown();
 
 export const editPack = async (
@@ -117,26 +120,41 @@ export const editPack = async (
     // Read the body
     const { value: body, error } = editPackRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error);
+      return res.status(400).send(error.message);
     }
 
     const name: string | undefined = body.name;
     const categories: string[] | undefined = body.categories;
     const questions: string[] | undefined = body.questions;
     const isPublic: boolean | undefined = body.public;
+    const updatedAt: Date = new Date(body.updatedAt);
+    console.log(body);
+    console.log(body.updated);
+    console.log(updatedAt);
 
     const packRepository = getCustomRepository(PackRepository);
-    const updatedPack = await packRepository.updateFromRequest(
-      req.params.id,
+    const updateResult = await packRepository.updateFromRequest(
+      updatedAt,
+      packID,
       name,
       categories,
       questions,
       isPublic
     );
-    if (updatedPack === undefined) {
-      res.status(400).send("pack does not exist");
+    if (updateResult === "pack does not exist") {
+      return res.status(400).json({ message: "pack does not exist" });
+    } else if (
+      updateResult instanceof Object &&
+      "updatedCopy" in updateResult
+    ) {
+      return res.json(updateResult.updatedCopy);
+    } else if (updateResult instanceof Object && "serverCopy" in updateResult) {
+      return res.status(400).json({
+        message: "server has a newer copy",
+        serverCopy: updateResult.serverCopy,
+      });
     } else {
-      res.json(updatedPack);
+      return res.status(500);
     }
   } catch (error) {
     next(error);

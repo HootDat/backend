@@ -12,6 +12,16 @@ import { CategoryRepository } from "./CategeryRepository";
 
 export type PackQueryScope = "all" | "own" | "community";
 
+export type PackUpdateRejectedOverwrite = { serverCopy: Pack };
+export type PackUpdateUpdated = { updatedCopy: Pack };
+export type PackUpdatePackNotFound = "pack does not exist";
+export type PackUpdateUnexpectedError = "unexpected error";
+export type PackUpdateResult =
+  | PackUpdateUpdated
+  | PackUpdateRejectedOverwrite
+  | PackUpdatePackNotFound
+  | PackUpdateUnexpectedError;
+
 @EntityRepository(Pack)
 export class PackRepository extends Repository<Pack> {
   private visiblePacks(userID?: number): SelectQueryBuilder<Pack> {
@@ -108,12 +118,13 @@ export class PackRepository extends Repository<Pack> {
   }
 
   async updateFromRequest(
-    id?: string,
+    lastEdited: Date,
+    id: string,
     name?: string,
     categoryNames?: string[],
     questionTitles?: string[],
     isPublic?: boolean
-  ): Promise<Pack | undefined> {
+  ): Promise<PackUpdateResult> {
     const categeryRepository = getCustomRepository(CategoryRepository);
     const categories = await categeryRepository.createOrGet(
       categoryNames || []
@@ -121,8 +132,15 @@ export class PackRepository extends Repository<Pack> {
 
     return await this.manager.transaction(async (manager) => {
       const pack = await manager.findOne(Pack, id);
-      if (pack === undefined) {
-        return undefined;
+      if (!pack) {
+        return "pack does not exist";
+      }
+      if (!pack.updatedAt) {
+        return "unexpected error";
+      }
+      // If the server copy is newer than the client copy, don't allow update
+      if (pack.updatedAt > lastEdited) {
+        return { serverCopy: pack };
       }
 
       pack.name = name;
@@ -138,8 +156,18 @@ export class PackRepository extends Repository<Pack> {
         return question;
       });
       await manager.save(pack);
+      // We might not have modified properties of the pack (eg only changed questions)
+      // But we still want the updatedAt column to sync to the current time
+      // There's no clean way to only update the updatedAt column
+      await manager.query(
+        `UPDATE "pack" SET "updatedAt" = NOW() WHERE id = ${pack.id}`
+      );
       await manager.save(pack.questions);
-      return await manager.findOne(Pack, pack.id);
+      const reloadedPack = await manager.findOne(Pack, pack.id);
+      if (!reloadedPack) {
+        return "unexpected error";
+      }
+      return { updatedCopy: reloadedPack };
     });
   }
 }
