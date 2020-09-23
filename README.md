@@ -46,6 +46,6 @@ npm run start
 
 This will let `nodemon` observe file changes and automatically recompile the server as you modify the files (live reload).
 
-If live reload does not work, try running `npm run dev` instead.
-
 You might also be interested in other `npm` scripts. Take a look at `package.json`.
+
+**Note:** if live reload does not work, try running `npm run dev` instead.
