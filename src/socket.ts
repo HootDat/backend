@@ -19,7 +19,7 @@ const withAuthentication = (io: any) =>
 
     // register user presence which is a clientId -> socketId mapping
     const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
-    io.to(userData?.socketId).emit("socket.leave", {});
+    io.to(userData?.socketId).emit("auth.loggedInElsewhere", {});
     await redis.hmset(`${K_PRESENCE}-${cId}`, { socketId });
 
     next();
