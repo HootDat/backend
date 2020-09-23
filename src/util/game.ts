@@ -25,6 +25,9 @@ const isInUse = async (gameCode: string): Promise<boolean> => {
 
 const createBasePlayerObject = (cId: string): any => ({
   cId,
+  name: "",
+  role: "",
+  iconNum: -1,
   online: true,
   answers: [],
   score: 0,
@@ -56,6 +59,25 @@ const getAndDeserializeGameObject = async (gameCode: string): Promise<any> => {
   return deserializeGameObject(gameObj);
 };
 
+const serializeAndUpdateGameObject = (gameCode: string, gameObj: any) =>
+  redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+
+// remove roles from all players except client
+const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
+  const sanitizedGameObj = {
+    ...gameObj,
+    yourRole: gameObj.players[cId].role,
+  };
+
+  Object.keys(sanitizedGameObj.players).forEach((_cId) => {
+    if (_cId !== cId) {
+      delete sanitizedGameObj.players[_cId].role;
+    }
+  });
+
+  return sanitizedGameObj;
+};
+
 const mapPlayerToGame = async (cId: string, gameCode: string | null) => {
   const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
   await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
@@ -71,10 +93,10 @@ const createGame = async (cId: string): Promise<any> => {
 
   const gameObj = createBaseGameObject(gameCode, cId);
 
-  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+  await serializeAndUpdateGameObject(gameCode, gameObj);
   await mapPlayerToGame(cId, gameCode);
 
-  return gameObj;
+  return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
 const joinGame = async (cId: string, gameCode: string): Promise<any> => {
@@ -82,7 +104,7 @@ const joinGame = async (cId: string, gameCode: string): Promise<any> => {
 
   // add player to game and update game in redis
   gameObj.players[cId] = createBasePlayerObject(cId);
-  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+  await serializeAndUpdateGameObject(gameCode, gameObj);
 
   // create player->gameCode mapping
   await mapPlayerToGame(cId, gameCode);
@@ -93,7 +115,7 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
 
   // remove player from game and update game in redis
   gameObj.players[cId] = null;
-  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+  await serializeAndUpdateGameObject(gameCode, gameObj);
 
   // remove player->gameCode mapping
   await mapPlayerToGame(cId, null);
@@ -111,9 +133,9 @@ const registerUserOnline = async (
 
   // set player online status to true and update game in redis
   gameObj.players[cId].online = true;
-  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+  await serializeAndUpdateGameObject(gameCode, gameObj);
 
-  return gameObj;
+  return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
 const registerUserOffline = async (cId: string): Promise<any> => {
@@ -125,9 +147,26 @@ const registerUserOffline = async (cId: string): Promise<any> => {
 
   // set player online status to false and update game in redis
   gameObj.players[cId].online = false;
-  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+  await serializeAndUpdateGameObject(gameCode, gameObj);
 
-  return gameObj;
+  return sanitizeGameObjectForPlayer(cId, gameObj);
+};
+
+// only host can do this
+const updateQuestionsGameEvent = async (
+  cId: string,
+  gameCode: string,
+  questions: any,
+): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // if host is not cId, error
+  if (gameObj.host !== cId) throw new Error("Not authorized.");
+
+  gameObj.questions = questions;
+  await serializeAndUpdateGameObject(gameCode, gameObj);
+
+  return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
 export {
@@ -136,4 +175,5 @@ export {
   leaveGame,
   registerUserOffline,
   registerUserOnline,
+  updateQuestionsGameEvent,
 };
