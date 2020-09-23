@@ -11,9 +11,9 @@ gameObj: {
     questions[],   <- question list
     players: {     <- a mapping of (cId, their current game state)
         cId: {
-        answers[],
-        score
-        status <- online/offline
+            answers[],
+            score
+            status <- online/offline
         }
     }
 }
