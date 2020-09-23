@@ -17,7 +17,7 @@ import logger from "./init/logger";
 import { extractJwt, requireJwt } from "./middleware/auth";
 
 createConnection()
-  .catch((error) => {
+  .catch(error => {
     logger.error(`Failed to connect to database: ${error}`);
     process.exit(1);
   })
@@ -39,7 +39,11 @@ createConnection()
     } else {
       app.use(morgan("dev"));
     }
-    app.use(cors());
+
+    const corsOptions = {
+      exposedHeaders: "Authorization"
+    };
+    app.use(cors(corsOptions));
 
     app.use(
       express.static(path.join(__dirname, "public"), { maxAge: 31557600000 })
@@ -73,7 +77,7 @@ createConnection()
       );
     });
   })
-  .catch((error) => {
+  .catch(error => {
     console.error(error);
     // Errors thrown by handlers are automatically caught by Express
     // If we reach here, we must have encountered an error during initialisation
