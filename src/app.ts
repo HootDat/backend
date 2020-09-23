@@ -3,6 +3,7 @@ import compression from "compression"; // compresses requests
 import cors from "cors";
 import express from "express";
 import flash from "express-flash";
+import http from "http";
 import lusca from "lusca";
 import morgan from "morgan";
 import path from "path";
@@ -15,6 +16,7 @@ import * as packController from "./controllers/pack";
 import config from "./init/config";
 import logger from "./init/logger";
 import { extractJwt, requireJwt } from "./middleware/auth";
+import setupSocket from "./socket";
 
 createConnection()
   .catch(error => {
@@ -46,7 +48,7 @@ createConnection()
     app.use(cors(corsOptions));
 
     app.use(
-      express.static(path.join(__dirname, "public"), { maxAge: 31557600000 })
+      express.static(path.join(__dirname, "public"), { maxAge: 31557600000 }),
     );
 
     app.use(extractJwt);
@@ -69,11 +71,13 @@ createConnection()
     }
 
     /**
-     * Start Express server.
+     * Start Express server and setup socket.io server
      */
-    app.listen(config.port, () => {
+    const server = http.createServer(app);
+    setupSocket(server);
+    server.listen(config.port, () => {
       logger.info(
-        `App is running at http://localhost:${config.port} in ${config.environment} mode`
+        `App is running at http://localhost:${config.port} in ${config.environment} mode`,
       );
     });
   })
