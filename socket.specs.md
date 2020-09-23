@@ -1,4 +1,4 @@
-# game socketio specs v0.0.1
+# game socketio specs v0.0.2
 
 ## Multi login event: `auth.loggedInElsewhere`
 
