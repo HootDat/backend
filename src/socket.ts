@@ -12,6 +12,7 @@ import {
   registerUserOnline,
   updateQuestionsGameEvent,
   startGameEvent,
+  playerAnswerGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 
@@ -186,7 +187,7 @@ const useGameControllers = (socket: any, io: any) => {
       const { gameCode } = data;
       const results = await startGameEvent(cId, gameCode);
 
-      // send each player their own version of the game object
+      // send each player their own version of the updated game object
       results.forEach(
         ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
           socket.to(socketId).emit("game.event.transition", gameObj);
@@ -197,8 +198,22 @@ const useGameControllers = (socket: any, io: any) => {
       socket.emit("game.event.host.start.error");
     }
   });
+
   socket.on("game.event.player.answer", async (data: any) => {
-    // fire game.event.transition
+    try {
+      const { gameCode, answer } = data;
+      const results = await playerAnswerGameEvent(cId, answer.trim(), gameCode);
+
+      // send each player their own version of the updated game object
+      results.forEach(
+        ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
+          socket.to(socketId).emit("game.event.transition", gameObj);
+        },
+      );
+    } catch (e) {
+      console.error("game.event.player.answer error", e);
+      socket.emit("game.event.player.answer.error");
+    }
   });
 };
 
@@ -214,9 +229,3 @@ const setupSocket = (server: any) => {
 };
 
 export default setupSocket;
-
-// game.event.host.start
-// game.event.player.answer
-// game.event.transition
-// game.event.host.start
-// game.event.host.start
