@@ -83,8 +83,8 @@ export const loginWithFacebook = async (
       const token = jwt.sign({ userID: user.id }, config.jwtSecret, {
         expiresIn: "2 days",
       });
-      // Send the jwt in the response
-      return res.send(`Bearer ${token}`);
+      // Send the jwt in the header and user in the body
+      return res.set("Authorization", `Bearer ${token}`).json(user);
     } catch (error) {
       if (error.response) {
         return res.status(401).send("bad credentials");
