@@ -1,4 +1,23 @@
-# game socketio specs v0.0.2
+# game socketio specs v0.0.3
+
+## Game obj defn
+
+```
+gameObj: {
+    gameCode,      <- game gameCode
+    host,          <- host cId, which is you
+    phase,         <- current phase
+    qnNum,         <- current question number
+    questions[],   <- question list
+    players: {     <- a mapping of (cId, their current game state)
+        cId: {
+        answers[],
+        score
+        status <- online/offline
+        }
+    }
+}
+```
 
 ## Multi login event: `auth.loggedInElsewhere`
 
@@ -21,21 +40,6 @@
 
 #### on("game.join", (gameObj) => {...}):
 
-- gameObj defn:
-  ```
-  gameObj: {
-    gameCode,  <- game gameCode
-    host,      <- host cId, which is you
-    phase,     <- should be "lobby" now
-    players: { <- a mapping of (cId, their current game state)
-      cId: {
-        answers[],
-        score
-        status <- online/offline
-      }
-    }
-  }
-  ```
 - proceed to GameController screen, whose current screen is set to `phase` (which should = "lobby" for now)
 - when in the lobby screen of GameController, check if your `cId == gameObj.host` for conditional rendering of host-only components e.g. ability to add question packs. If `cId != gameObj.host` (the case for players who are !host), then show them non-host stuff.
 
@@ -50,21 +54,6 @@
 
 #### on("game.join", (gameObj) => {...}):
 
-- gameObj defn:
-  ```
-  gameObj: {
-    gameCode,  <- game gameCode
-    host,      <- host cId, which is you
-    phase,
-    players: { <- a mapping of (cId, their current game state). It should contain your cId because you just joined
-      cId: {
-        answers[],
-        score
-        status <- online/offline
-      }
-    }
-  }
-  ```
 - proceed to GameController screen, whose current screen is set to `phase`.
 
 ## Leave game: `game.leave`
