@@ -12,7 +12,7 @@ gameObj: {
     players: {     <- a mapping of (cId, their current game state)
         cId: {
             answers[],
-            score
+            score,
             status <- online/offline
         }
     }
