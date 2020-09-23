@@ -4,6 +4,14 @@
 import temp from "./redis";
 import { randomIntFromInterval } from "./helpers";
 import { K_PRESENCE, K_GAME } from "../constants/redis";
+import {
+  PHASE_LOBBY,
+  PHASE_QN_ANSWER,
+  PHASE_QN_GUESS,
+  PHASE_QN_RESULTS,
+  ROLE_ANSWERER,
+  ROLE_GUESSER,
+} from "../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper
 
@@ -26,20 +34,20 @@ const isInUse = async (gameCode: string): Promise<boolean> => {
 const createBasePlayerObject = (cId: string): any => ({
   cId,
   name: "",
-  role: "",
   iconNum: -1,
   online: true,
-  answers: [],
-  score: 0,
 });
 
 const createBaseGameObject = (gameCode: string, cId: string): any => ({
   gameCode,
   host: cId,
-  phase: "lobby",
+  phase: PHASE_LOBBY,
   qnNum: -1,
   questions: [],
   players: { [cId]: createBasePlayerObject(cId) },
+  results: [],
+  currAnswerer: "",
+  currAnswer: "",
 });
 
 const serializeGameObject = (gameObject: any): any => ({
@@ -59,21 +67,15 @@ const getAndDeserializeGameObject = async (gameCode: string): Promise<any> => {
   return deserializeGameObject(gameObj);
 };
 
-const serializeAndUpdateGameObject = (gameCode: string, gameObj: any) =>
-  redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
+const serializeAndUpdateGameObject = (gameObj: any) =>
+  redis.hmset(`${K_GAME}-${gameObj.gameCode}`, serializeGameObject(gameObj));
 
 // remove roles from all players except client
 const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
   const sanitizedGameObj = {
     ...gameObj,
-    yourRole: gameObj.players[cId].role,
+    yourRole: gameObj.currAnswerer === cId ? ROLE_ANSWERER : ROLE_GUESSER,
   };
-
-  Object.keys(sanitizedGameObj.players).forEach((_cId) => {
-    if (_cId !== cId) {
-      delete sanitizedGameObj.players[_cId].role;
-    }
-  });
 
   return sanitizedGameObj;
 };
@@ -93,7 +95,7 @@ const createGame = async (cId: string): Promise<any> => {
 
   const gameObj = createBaseGameObject(gameCode, cId);
 
-  await serializeAndUpdateGameObject(gameCode, gameObj);
+  await serializeAndUpdateGameObject(gameObj);
   await mapPlayerToGame(cId, gameCode);
 
   return sanitizeGameObjectForPlayer(cId, gameObj);
@@ -104,7 +106,7 @@ const joinGame = async (cId: string, gameCode: string): Promise<any> => {
 
   // add player to game and update game in redis
   gameObj.players[cId] = createBasePlayerObject(cId);
-  await serializeAndUpdateGameObject(gameCode, gameObj);
+  await serializeAndUpdateGameObject(gameObj);
 
   // create player->gameCode mapping
   await mapPlayerToGame(cId, gameCode);
@@ -115,7 +117,7 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
 
   // remove player from game and update game in redis
   gameObj.players[cId] = null;
-  await serializeAndUpdateGameObject(gameCode, gameObj);
+  await serializeAndUpdateGameObject(gameObj);
 
   // remove player->gameCode mapping
   await mapPlayerToGame(cId, null);
@@ -133,7 +135,7 @@ const registerUserOnline = async (
 
   // set player online status to true and update game in redis
   gameObj.players[cId].online = true;
-  await serializeAndUpdateGameObject(gameCode, gameObj);
+  await serializeAndUpdateGameObject(gameObj);
 
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
@@ -147,7 +149,7 @@ const registerUserOffline = async (cId: string): Promise<any> => {
 
   // set player online status to false and update game in redis
   gameObj.players[cId].online = false;
-  await serializeAndUpdateGameObject(gameCode, gameObj);
+  await serializeAndUpdateGameObject(gameObj);
 
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
@@ -163,10 +165,140 @@ const updateQuestionsGameEvent = async (
   // if host is not cId, error
   if (gameObj.host !== cId) throw new Error("Not authorized.");
 
+  // if wrong phase
+  if (gameObj.phase !== PHASE_LOBBY) throw new Error("Wrong phase.");
+
   gameObj.questions = questions;
-  await serializeAndUpdateGameObject(gameCode, gameObj);
+  await serializeAndUpdateGameObject(gameObj);
 
   return sanitizeGameObjectForPlayer(cId, gameObj);
+};
+
+const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // TODO: put all these checks in a function where the
+  // checks are passed via a parameterized object
+
+  // if host is not cId, error
+  if (gameObj.host !== cId) throw new Error("Not authorized.");
+
+  // if wrong phase
+  if (gameObj.phase !== PHASE_LOBBY) throw new Error("Wrong phase.");
+
+  // if no questions
+  if (gameObj.questions.length === 0)
+    throw new Error("Game must have >= 1 questions to start.");
+
+  gameObj.qnNum += 1;
+  gameObj.phase = PHASE_QN_ANSWER;
+  const playerCIds = Object.keys(gameObj.players);
+  const numPlayers = playerCIds.length;
+  const curAnswerer = playerCIds[randomIntFromInterval(0, numPlayers - 1)];
+  gameObj.curAnswerer = curAnswerer;
+
+  await serializeAndUpdateGameObject(gameObj);
+
+  // get socketId of all players in one redis transaction
+  const getSocketIdsMulti = redis.multi();
+  playerCIds.forEach((_cId) => {
+    getSocketIdsMulti.hgetall(_cId);
+  });
+  const socketIds = (await redis.executeMulti(getSocketIdsMulti)).map(
+    ({ socketId }: { socketId: any }): any => socketId,
+  );
+
+  // make version of game object specific to each player
+  return playerCIds.map((_cId, i) => ({
+    socketId: socketIds[i],
+    gameObj: sanitizeGameObjectForPlayer(_cId, gameObj),
+  }));
+};
+
+const getPlayerRole = async (cId: string, gameCode: string) => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj.players[cId]) throw new Error("Not authorized.");
+  return cId === gameObj.currAnswerer ? "answerer" : "guesser";
+};
+
+const playerAnswerGameEvent = async (
+  cId: string,
+  answer: string,
+  gameCode: string,
+): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // TODO: put all these checks in a function where the
+  // checks are passed via a parameterized object
+
+  if (gameObj.phase !== PHASE_QN_ANSWER) throw new Error("Wrong phase.");
+
+  gameObj.currAnswer = answer;
+  gameObj.phase = PHASE_QN_GUESS;
+  gameObj.results = [
+    ...gameObj.results,
+    { cId: { score: 0, answer, role: "answerer", cId } },
+  ];
+  await serializeAndUpdateGameObject(gameObj);
+  return {
+    currAnswer: gameObj.currAnswer,
+    phase: gameObj.phase,
+  };
+};
+
+const playerGuessGameEvent = async (
+  cId: string,
+  answer: string,
+  gameCode: string,
+) => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // TODO: put all these checks in a function where the
+  // checks are passed via a parameterized object
+
+  // TODO: beware of race conditions (multiple guessers update)
+  // either have everything as single redis transaction/use semaphore
+  // or find a smarter concurrent way to perform such an update, perhaps using
+  // a synchronized js object first before committing to redis when the
+  // timer's up
+
+  if (gameObj.phase !== PHASE_QN_GUESS) throw new Error("Wrong phase.");
+
+  gameObj.phase = PHASE_QN_GUESS;
+
+  gameObj.results[gameObj.qnNum][cId] = { answer, role: "guesser", cId };
+  let score = answer === gameObj.currAnswerer ? 1 : 0;
+  if (gameObj.qnNum > 0) {
+    score += gameObj.results[gameObj.qnNum - 1][cId]?.score || 0;
+  }
+  gameObj.results[gameObj.qnNum][cId].score = score;
+
+  await serializeAndUpdateGameObject(gameObj);
+
+  return gameObj;
+};
+
+const roundEndGameEvent = async (gameCode: string): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // This guard clause also serves as a guard against multiple calls of
+  // this function, in particular when roundEndGameEvent is called the
+  // second time after 8s even if it's been previously called after everyone
+  // finishes answering.
+  // The only issue is if the question has advanced to the next question and
+  // is at the PHASE_QN_GUESS phase then the round will end prematurely.
+  // This is extremely unlikely though...
+  if (gameObj.phase !== PHASE_QN_GUESS) throw new Error("Wrong phase.");
+
+  gameObj.phase = PHASE_QN_RESULTS;
+
+  await serializeAndUpdateGameObject(gameObj);
+
+  return {
+    currAnswerer: gameObj.currAnswerer,
+    phase: gameObj.phase,
+    results: gameObj.results,
+  };
 };
 
 export {
@@ -176,4 +308,9 @@ export {
   registerUserOffline,
   registerUserOnline,
   updateQuestionsGameEvent,
+  startGameEvent,
+  getPlayerRole,
+  playerAnswerGameEvent,
+  playerGuessGameEvent,
+  roundEndGameEvent,
 };

@@ -11,6 +11,11 @@ import {
   registerUserOffline,
   registerUserOnline,
   updateQuestionsGameEvent,
+  startGameEvent,
+  getPlayerRole,
+  playerAnswerGameEvent,
+  playerGuessGameEvent,
+  roundEndGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 
@@ -137,6 +142,8 @@ const useMetaGameControllers = (socket: any, io: any) => {
     }
   });
 
+  // TODO: handle reconnect event for intermittent connections
+
   socket.on("disconnect", async () => {
     try {
       console.log(`Socket (${cId}, ${socketId}) disconnected.`);
@@ -166,29 +173,72 @@ const useMetaGameControllers = (socket: any, io: any) => {
 const useGameControllers = (socket: any, io: any) => {
   const { cId, id: socketId } = socket;
 
-  socket.on(
-    "game.event.questions.update",
-    async ({
-      gameCode,
-      questions,
-    }: {
-      gameCode: string;
-      questions: Array<any>;
-    }) => {
-      try {
-        const gameObj = await updateQuestionsGameEvent(
-          cId,
-          gameCode,
-          questions,
-        );
+  socket.on("game.event.questions.update", async (data: any) => {
+    try {
+      const { gameCode, questions } = data;
+      await updateQuestionsGameEvent(cId, gameCode, questions);
 
-        socket.to(gameCode).emit("game.event.questions.update", questions);
-      } catch (e) {
-        console.error("game.event.questions.update error", e);
-        socket.emit("game.event.questions.update.error");
+      socket.to(gameCode).emit("game.event.questions.update", questions);
+    } catch (e) {
+      console.error("game.event.questions.update error", e);
+      socket.emit("game.event.questions.update.error");
+    }
+  });
+
+  socket.on("game.event.host.start", async (data: any) => {
+    try {
+      const { gameCode } = data;
+      const results = await startGameEvent(cId, gameCode);
+
+      // send each player their own version of the updated game object
+      results.forEach(
+        ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
+          socket.to(socketId).emit("game.event.transition", gameObj);
+        },
+      );
+    } catch (e) {
+      console.error("game.event.host.start error", e);
+      socket.emit("game.event.host.start.error");
+    }
+  });
+
+  socket.on("game.event.player.answer", async (data: any) => {
+    try {
+      const { gameCode, answer: answerRaw } = data;
+      const answer = answerRaw.trim();
+      const playerRole = await getPlayerRole(cId, gameCode);
+
+      // TODO: break up if/else into two separate events
+      // game.event.player.answer and game.event.player.guess
+
+      // authorized already
+      if (playerRole === "answerer") {
+        let gameObj = await playerAnswerGameEvent(cId, answer, gameCode);
+        socket.to(gameCode).emit("game.event.transition", gameObj);
+
+        // let's transition to PHASE_QN_RESULTS of this round in 8s
+        gameObj = await roundEndGameEvent(gameCode);
+        setTimeout(() => {
+          io.to(gameCode).emit("game.event.transition", gameObj);
+        }, 8000); // 8s
+      } else {
+        let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
+
+        // if everyone has answered,
+        // let's transition to PHASE_QN_RESULTS of this round
+        if (
+          gameObj.results[gameObj.qnNum - 1].length >=
+          Object.values(gameObj.players).length
+        ) {
+          gameObj = await roundEndGameEvent(gameCode);
+          io.to(gameCode).emit("game.event.transition", gameObj);
+        }
       }
-    },
-  );
+    } catch (e) {
+      console.error("game.event.player.answer error", e);
+      socket.emit("game.event.player.answer.error");
+    }
+  });
 };
 
 const setupSocket = (server: any) => {
