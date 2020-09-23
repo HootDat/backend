@@ -1,8 +1,26 @@
 # HootDat Backend
 
+The backend of HootDat!
+
+## Table of content
+
+- [Getting started](#getting-started)
+  - [Clone the repository](#clone-the-repository)
+  - [Install dependencies](#install-dependencies)
+  - [Configure Postgres](#configure-postgres)
+  - [Configure the environment variables](#configure-the-environment-variables)
+  - [Configure Redis](#configure-redis)
+  - [Build and run the project](#build-and-run-the-project)
+
 ## Getting started
 
 ### Clone the repository
+
+Clone the repository with:
+
+```bash
+git clone https://github.com/HootDat/backend.git
+```
 
 ### Install dependencies
 
