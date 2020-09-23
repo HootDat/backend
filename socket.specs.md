@@ -87,6 +87,10 @@
 - server emits this when a new player has joiend the game (clicked the join game/visit URL with gameCode)
 - update list of players in the game i.e. `players[player.cId] = player`. Don't care if cId is duplicated in the player object for now (forever).
 
+## Game leave event: `game.event.leave`
+
+### client:
+
 #### on("game.event.leave", (player) => { ... })
 
 - server emits this when a player has left the game (clicked the exit game)
