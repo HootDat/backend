@@ -13,9 +13,9 @@ const padCode = (code: number): string =>
 const generateGameCode = (): string =>
   padCode(randomIntFromInterval(0, 999999));
 
-const isInUse = async (code: string): Promise<boolean> => {
+const isInUse = async (gameCode: string): Promise<boolean> => {
   try {
-    const res = await redis.hgetall(`${K_GAME}-${code}`);
+    const res = await redis.hgetall(`${K_GAME}-${gameCode}`);
     return !!res;
   } catch (e) {
     console.error("redis error:", e);
@@ -23,8 +23,8 @@ const isInUse = async (code: string): Promise<boolean> => {
   }
 };
 
-const createGameObject = (code: string, cId: string): any => ({
-  code,
+const createGameObject = (gameCode: string, cId: string): any => ({
+  gameCode,
   host: cId,
   phase: "lobby",
   players: [{ cId, answers: [], score: 0 }],
@@ -41,18 +41,18 @@ const deserializeGameObject = (gameObjectSerialized: any): any => ({
 });
 
 const createGameRoom = async (cId: string): Promise<string> => {
-  let code = generateGameCode();
+  let gameCode = generateGameCode();
 
   // loop till unique game code generated
-  while (await isInUse(code)) {
-    code = generateGameCode();
+  while (await isInUse(gameCode)) {
+    gameCode = generateGameCode();
   }
 
-  const gameObj = createGameObject(code, cId);
+  const gameObj = createGameObject(gameCode, cId);
 
-  await redis.hmset(`${K_GAME}-${code}`, serializeGameObject(gameObj));
+  await redis.hmset(`${K_GAME}-${gameCode}`, serializeGameObject(gameObj));
   const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
-  await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode: code });
+  await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
 
   return gameObj;
 };
