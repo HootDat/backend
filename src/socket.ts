@@ -12,7 +12,10 @@ import {
   registerUserOnline,
   updateQuestionsGameEvent,
   startGameEvent,
+  getPlayerRole,
   playerAnswerGameEvent,
+  playerGuessGameEvent,
+  roundEndGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 
@@ -201,15 +204,35 @@ const useGameControllers = (socket: any, io: any) => {
 
   socket.on("game.event.player.answer", async (data: any) => {
     try {
-      const { gameCode, answer } = data;
-      const results = await playerAnswerGameEvent(cId, answer.trim(), gameCode);
+      const { gameCode, answer: answerRaw } = data;
+      const answer = answerRaw.trim();
+      const playerRole = await getPlayerRole(cId, gameCode);
 
-      // send each player their own version of the updated game object
-      results.forEach(
-        ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
-          socket.to(socketId).emit("game.event.transition", gameObj);
-        },
-      );
+      // TODO: break up if/else into two separate events
+      // game.event.player.answer and game.event.player.guess
+
+      // authorized already
+      if (playerRole === "answerer") {
+        let gameObj = await playerAnswerGameEvent(cId, answer, gameCode);
+        socket.to(gameCode).emit("game.event.transition", gameObj);
+
+        // let's transition to PHASE_QN_RESULTS of this round in 8s
+        gameObj = await roundEndGameEvent(gameCode);
+        setTimeout(() => {
+          io.to(gameCode).emit("game.event.transition", gameObj);
+        }, 8000); // 8s
+      } else {
+        let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
+
+        // if everyone has answered,
+        // let's transition to PHASE_QN_RESULTS of this round
+        if (
+          gameObj.results[gameObj.qnNum - 1].length === gameObj.players.length
+        ) {
+          gameObj = await roundEndGameEvent(gameCode);
+          io.to(gameCode).emit("game.event.transition", gameObj);
+        }
+      }
     } catch (e) {
       console.error("game.event.player.answer error", e);
       socket.emit("game.event.player.answer.error");
