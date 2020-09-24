@@ -339,7 +339,7 @@ const useGameControllers = (socket: any, io: any) => {
         // if everyone has answered,
         // let's transition to PHASE_QN_RESULTS of this question
         if (
-          gameObj.results[gameObj.qnNum - 1].length >=
+          gameObj.results[gameObj.qnNum].length >=
           Object.values(gameObj.players).length
         ) {
           // transition to PHASE_QN_RESULTS of the question
