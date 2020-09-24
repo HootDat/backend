@@ -317,6 +317,19 @@ const roundEndGameEvent = async (gameCode: string): Promise<any> => {
   if (gameObj.phase !== PHASE_QN_GUESS) throw new Error("Wrong phase.");
 
   gameObj.phase = PHASE_QN_RESULTS;
+  Object.keys(gameObj.players).forEach((_cId: any) => {
+    if (!gameObj.results[gameObj.qnNum][_cId]) {
+      gameObj.results[gameObj.qnNum][_cId] = {
+        answer: "",
+        role: "guesser",
+        cId: _cId,
+        score:
+          gameObj.qnNum > 0
+            ? gameObj.results[gameObj.qnNum - 1][_cId]?.score
+            : 0,
+      };
+    }
+  });
 
   await serializeAndUpdateGameObject(gameObj);
 
