@@ -61,14 +61,14 @@ export const loginWithFacebook = async (
     if (error) {
       return res
         .status(400)
-        .json({ message: `malformed request body: ${error.message}` });
+        .json({ error: `malformed request body: ${error.message}` });
     }
     const accessToken: string = reqBody.accessToken;
 
     try {
       const isValidToken = await checkAccessToken(accessToken);
       if (!isValidToken) {
-        return res.status(401).send("bad credential");
+        return res.status(401).json({ error: "bad credential" });
       }
 
       const profile = await fetchFacebookProfile(accessToken);
@@ -79,7 +79,7 @@ export const loginWithFacebook = async (
       );
 
       if (!user) {
-        return res.sendStatus(500);
+        return res.status(500).json({ error: "internal server error" });
       }
       // Generate and send our own JWT
       const token = jwt.sign({ userID: user.id }, config.jwtSecret, {
@@ -89,9 +89,9 @@ export const loginWithFacebook = async (
       return res.set("Authorization", `Bearer ${token}`).json(user);
     } catch (error) {
       if (error.response) {
-        return res.status(401).send("bad credentials");
+        return res.status(401).json({ error: "bad credential" });
       } else {
-        return res.status(500).send(error);
+        return res.status(500).json({ error: error });
       }
     }
   } catch (error) {

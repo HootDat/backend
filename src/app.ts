@@ -1,7 +1,7 @@
 import bodyParser from "body-parser";
 import compression from "compression"; // compresses requests
 import cors from "cors";
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import flash from "express-flash";
 import http from "http";
 import lusca from "lusca";
@@ -69,6 +69,13 @@ createConnection()
       app.post("/debug/nuke", debugController.nukeDatabase);
       app.post("/debug/seed", debugController.seed);
     }
+
+    app.use(
+      (error: Error, _req: Request, res: Response, _next: NextFunction) => {
+        logger.warn("unhandled error", error);
+        return res.status(500).json({ error: "internal server error" });
+      }
+    );
 
     /**
      * Start Express server and setup socket.io server
