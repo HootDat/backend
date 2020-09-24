@@ -61,6 +61,7 @@ const serializeGameObject = (gameObject: any): any => ({
 
 const deserializeGameObject = (gameObjectSerialized: any): any => ({
   ...gameObjectSerialized,
+  qnNum: parseInt(gameObjectSerialized.qnNum),
   results: JSON.parse(gameObjectSerialized.results),
   questions: JSON.parse(gameObjectSerialized.questions),
   players: JSON.parse(gameObjectSerialized.players),
@@ -149,7 +150,7 @@ const registerUserOnline = async (
 };
 
 const registerUserOffline = async (cId: string): Promise<any> => {
-  await redis.hmset(`${K_PRESENCE}-${cId}`, { socketId: null });
+  await redis.hmset(`${K_PRESENCE}-${cId}`, { socketId: "" });
   const { gameCode } = await redis.hgetall(`${K_PRESENCE}-${cId}`);
   if (!gameCode) return {}; // not in game, we are done
 

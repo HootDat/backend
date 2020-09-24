@@ -39,7 +39,14 @@ const withAuthentication = (io: any) =>
     try {
       // register user presence
       const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
-      io.to(userData?.socketId).emit("auth.loggedInElsewhere", {});
+      if (userData && Object.keys(userData).length > 0) {
+        io.to(userData.socketId).emit("auth.loggedInElsewhere", {});
+        console.log(
+          `Multiple logins detected. Kicking out ${userData.socketId} from all rooms.`,
+        );
+        console.log(io.sockets.adapter.rooms);
+        console.log(io.sockets.connected[socketId]);
+      }
       const gameObj = await registerUserOnline(cId, socketId);
 
       // TODO: if user provided gameCode in handshake query which is not
