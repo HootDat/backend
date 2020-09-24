@@ -33,20 +33,29 @@ const isInUse = async (gameCode: string): Promise<boolean> => {
   }
 };
 
-const createBasePlayerObject = (cId: string): any => ({
+const createBasePlayerObject = (
+  cId: string,
+  name: string,
+  iconNum: number,
+): any => ({
   cId,
-  name: "",
-  iconNum: -1,
+  name: name || "john doe",
+  iconNum: iconNum || 0,
   online: true,
 });
 
-const createBaseGameObject = (gameCode: string, cId: string): any => ({
+const createBaseGameObject = (
+  gameCode: string,
+  cId: string,
+  name: string,
+  iconNum: number,
+): any => ({
   gameCode,
   host: cId,
   phase: PHASE_LOBBY,
   qnNum: -1,
   questions: [],
-  players: { [cId]: createBasePlayerObject(cId) },
+  players: { [cId]: createBasePlayerObject(cId, name, iconNum) },
   results: [],
   currAnswerer: "",
   currAnswer: "",
@@ -90,6 +99,7 @@ const serializeAndUpdateGameObject = async (
   gameObj: any,
   resetExpiry = true,
 ) => {
+  console.log(gameObj);
   await redis.hmset(
     `${K_GAME}-${gameObj.gameCode}`,
     serializeGameObject(gameObj),
@@ -124,10 +134,16 @@ const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
     yourRole: gameObj.currAnswerer === cId ? ROLE_ANSWERER : ROLE_GUESSER,
   };
 
+  delete sanitizedGameObj.currAnswerer;
+
   return sanitizedGameObj;
 };
 
-const createGame = async (cId: string): Promise<any> => {
+const createGame = async (
+  cId: string,
+  name: string,
+  iconNum: number,
+): Promise<any> => {
   let gameCode = generateGameCode();
 
   // loop till unique game gameCode generated
@@ -135,7 +151,7 @@ const createGame = async (cId: string): Promise<any> => {
     gameCode = generateGameCode();
   }
 
-  const gameObj = createBaseGameObject(gameCode, cId);
+  const gameObj = createBaseGameObject(gameCode, cId, name, iconNum);
 
   await serializeAndUpdateGameObject(gameObj);
   await mapPlayerToGame(cId, gameCode);
@@ -144,13 +160,18 @@ const createGame = async (cId: string): Promise<any> => {
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
-const joinGame = async (cId: string, gameCode: string): Promise<any> => {
+const joinGame = async (
+  cId: string,
+  name: "john doe",
+  iconNum: 0,
+  gameCode: string,
+): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
   if (!gameObj || Object.keys(gameObj).length === 0)
     throw new Error("No such game exists.");
 
   // add player to game and update game in redis
-  gameObj.players[cId] = createBasePlayerObject(cId);
+  gameObj.players[cId] = createBasePlayerObject(cId, name, iconNum);
   await serializeAndUpdateGameObject(gameObj);
 
   // create player->gameCode mapping
@@ -226,9 +247,9 @@ const updateQuestionsGameEvent = async (
 
   // if host is not cId, error
   if (
-    gameObj.host !== cId &&
-    gameObj.players[cId] &&
-    Object.keys(gameObj.players[cId]).length > 0
+    gameObj.host !== cId ||
+    !!gameObj.players[cId] ||
+    Object.keys(gameObj.players[cId]).length === 0
   )
     throw new Error("Not authorized.");
 
@@ -256,13 +277,15 @@ const setNextQuestion = (gameObj: any): any => {
 };
 
 const getSocketIdsFromPlayerCIds = async (playerCIds: any): Promise<any> => {
+  console.log("PLAYERS2:", playerCIds);
   const getSocketIdsMulti = redis.multi();
   playerCIds.forEach((_cId: any) => {
     getSocketIdsMulti.hgetall(_cId);
   });
-  const socketIds = (await redis.executeMulti(getSocketIdsMulti)).map(
-    ({ socketId }: { socketId: any }): any => socketId,
-  );
+  const results = await redis.executeMulti(getSocketIdsMulti);
+  console.log("RESULTS:", results);
+  console.log("RESULTS[0]:", results[0]);
+  const socketIds = results.map((result: any): any => result.socketId);
 
   return socketIds;
 };
@@ -272,6 +295,10 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
 
   // TODO: put all these checks in a function where the
   // checks are passed via a parameterized object
+
+  // ######################################################
+  // ##################### CHECKS #########################
+  // ######################################################
 
   // if host is not cId, error
   if (
@@ -288,13 +315,30 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   if (gameObj.questions.length === 0)
     throw new Error("Game must have >= 1 questions to start.");
 
+  // if not enough playeres
+  const numOnline = Object.values(gameObj.players).reduce(
+    (acc: number, curr: any) => acc + (curr.online ? 1 : 0),
+    0,
+  );
+
+  console.log("numOnline:", numOnline);
+
+  if (numOnline < 2)
+    throw new Error("Game must have >= 3 online players to start.");
+
+  // ######################################################
+  // ######################################################
+  // ######################################################
+
   // qnNum: -1 -> qnNum: 0
   gameObj = setNextQuestion(gameObj);
   const playerCIds = Object.keys(gameObj.players);
 
   // get socketId of all players in one redis transaction
   await serializeAndUpdateGameObject(gameObj);
+  console.log("PLAYERS1:", playerCIds);
   const socketIds = await getSocketIdsFromPlayerCIds(playerCIds);
+  console.log("SOCKET IDS:", socketIds);
 
   // make version of game object specific to each player
   // note that socketIds[i] belongs to playerCIds[i]
@@ -456,4 +500,5 @@ export {
   roundEndGameEvent,
   nextQuestionGameEvent,
   endGameEvent,
+  sanitizeGameObjectForPlayer,
 };

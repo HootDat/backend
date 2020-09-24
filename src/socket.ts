@@ -18,6 +18,7 @@ import {
   roundEndGameEvent,
   nextQuestionGameEvent,
   endGameEvent,
+  sanitizeGameObjectForPlayer,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 import { PHASE_END } from "./constants/game";
@@ -79,7 +80,7 @@ const withAuthentication = (io: any) =>
         // before the "connection" event.
 
         // tell client it's joined a game, and sub socket to game room
-        socket.emit("game.join", gameObj);
+        socket.emit("game.join", sanitizeGameObjectForPlayer(cId, gameObj));
 
         // update socket property for easier bookkeeping
         socket.game = {
@@ -96,7 +97,7 @@ const withAuthentication = (io: any) =>
 const useMetaGameControllers = (socket: any, io: any) => {
   const { cId, id: socketId } = socket;
 
-  socket.on("game.create", async () => {
+  socket.on("game.create", async (data: any) => {
     try {
       if (socket?.game?.gameCode) {
         // TODO: improve this perhaps?
@@ -113,7 +114,7 @@ const useMetaGameControllers = (socket: any, io: any) => {
         };
       }
 
-      const gameObj = await createGame(cId);
+      const gameObj = await createGame(cId, data.name, data.iconNum);
       const { gameCode } = gameObj;
 
       console.log("game.create called", cId, gameObj);
@@ -149,11 +150,11 @@ const useMetaGameControllers = (socket: any, io: any) => {
         };
       }
 
-      const { gameCode } = data;
+      const { gameCode, name, iconNum } = data;
       if (!gameCode) throw new Error("No gameCode provided.");
 
       // update redis and get gameObj
-      const gameObj = await joinGame(cId, gameCode);
+      const gameObj = await joinGame(cId, gameCode, name, iconNum);
       const {
         players: { [cId]: playerObj },
       } = gameObj;
