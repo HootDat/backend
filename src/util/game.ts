@@ -9,6 +9,7 @@ import {
   PHASE_QN_ANSWER,
   PHASE_QN_GUESS,
   PHASE_QN_RESULTS,
+  PHASE_END,
   ROLE_ANSWERER,
   ROLE_GUESSER,
 } from "../constants/game";
@@ -98,6 +99,7 @@ const createGame = async (cId: string): Promise<any> => {
   await serializeAndUpdateGameObject(gameObj);
   await mapPlayerToGame(cId, gameCode);
 
+  // TODO: consider not sanitizing because game's not started yet
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
@@ -116,7 +118,7 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
 
   // remove player from game and update game in redis
-  gameObj.players[cId] = null;
+  gameObj.players[cId] = {};
   await serializeAndUpdateGameObject(gameObj);
 
   // remove player->gameCode mapping
@@ -137,6 +139,7 @@ const registerUserOnline = async (
   gameObj.players[cId].online = true;
   await serializeAndUpdateGameObject(gameObj);
 
+  // TODO: consider checking if game's started yet or not before sanitizing
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
@@ -151,6 +154,7 @@ const registerUserOffline = async (cId: string): Promise<any> => {
   gameObj.players[cId].online = false;
   await serializeAndUpdateGameObject(gameObj);
 
+  // TODO: consider checking if game's started yet or not before sanitizing
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
@@ -171,11 +175,37 @@ const updateQuestionsGameEvent = async (
   gameObj.questions = questions;
   await serializeAndUpdateGameObject(gameObj);
 
+  // TODO: consider checking if game's started yet or not before sanitizing
   return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
+// this function advances the gameObj to the next question and generates
+// a random player to be the answerer
+const setNextQuestion = (gameObj: any): any => {
+  gameObj.qnNum += 1;
+  gameObj.phase = PHASE_QN_ANSWER;
+  const playerCIds = Object.keys(gameObj.players);
+  const numPlayers = playerCIds.length;
+  const currAnswerer = playerCIds[randomIntFromInterval(0, numPlayers - 1)];
+  gameObj.currAnswerer = currAnswerer;
+
+  return gameObj;
+};
+
+const getSocketIdsFromPlayerCIds = async (playerCIds: any): Promise<any> => {
+  const getSocketIdsMulti = redis.multi();
+  playerCIds.forEach((_cId: any) => {
+    getSocketIdsMulti.hgetall(_cId);
+  });
+  const socketIds = (await redis.executeMulti(getSocketIdsMulti)).map(
+    ({ socketId }: { socketId: any }): any => socketId,
+  );
+
+  return socketIds;
+};
+
 const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
-  const gameObj = await getAndDeserializeGameObject(gameCode);
+  let gameObj = await getAndDeserializeGameObject(gameCode);
 
   // TODO: put all these checks in a function where the
   // checks are passed via a parameterized object
@@ -190,26 +220,17 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   if (gameObj.questions.length === 0)
     throw new Error("Game must have >= 1 questions to start.");
 
-  gameObj.qnNum += 1;
-  gameObj.phase = PHASE_QN_ANSWER;
+  // qnNum: -1 -> qnNum: 0
+  gameObj = setNextQuestion(gameObj);
   const playerCIds = Object.keys(gameObj.players);
-  const numPlayers = playerCIds.length;
-  const curAnswerer = playerCIds[randomIntFromInterval(0, numPlayers - 1)];
-  gameObj.curAnswerer = curAnswerer;
-
-  await serializeAndUpdateGameObject(gameObj);
 
   // get socketId of all players in one redis transaction
-  const getSocketIdsMulti = redis.multi();
-  playerCIds.forEach((_cId) => {
-    getSocketIdsMulti.hgetall(_cId);
-  });
-  const socketIds = (await redis.executeMulti(getSocketIdsMulti)).map(
-    ({ socketId }: { socketId: any }): any => socketId,
-  );
+  await serializeAndUpdateGameObject(gameObj);
+  const socketIds = await getSocketIdsFromPlayerCIds(playerCIds);
 
   // make version of game object specific to each player
-  return playerCIds.map((_cId, i) => ({
+  // note that socketIds[i] belongs to playerCIds[i]
+  return playerCIds.map((_cId: any, i: number) => ({
     socketId: socketIds[i],
     gameObj: sanitizeGameObjectForPlayer(_cId, gameObj),
   }));
@@ -301,6 +322,45 @@ const roundEndGameEvent = async (gameCode: string): Promise<any> => {
   };
 };
 
+const nextQuestionGameEvent = async (gameCode: string): Promise<any> => {
+  let gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // only allow the game to transition to the PHASE_QN_ANSWER phase of
+  // the next question if the current phase is PHASE_QN_RESULTS of curr question
+  if (gameObj.phase !== PHASE_QN_RESULTS) throw new Error("Wrong phase.");
+
+  gameObj = setNextQuestion(gameObj);
+
+  await serializeAndUpdateGameObject(gameObj);
+
+  // get socketId of all players in one redis transaction
+  const playerCIds = Object.keys(gameObj.players);
+  const socketIds = await getSocketIdsFromPlayerCIds(playerCIds);
+
+  // make version of game object specific to each player
+  // note that socketIds[i] belongs to playerCIds[i]
+  return playerCIds.map((_cId: any, i: number) => ({
+    socketId: socketIds[i],
+    gameObj: sanitizeGameObjectForPlayer(_cId, gameObj),
+  }));
+};
+
+const endGameEvent = async (gameCode: string): Promise<any> => {
+  const gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // only allow the game to transition to PHASE_END if the current phase
+  // is the PHASE_QN_RESULTS phase of some question
+  if (gameObj.phase !== PHASE_QN_RESULTS) throw new Error("Wrong phase.");
+
+  gameObj.phase = PHASE_END;
+
+  await serializeAndUpdateGameObject(gameObj);
+
+  return {
+    phase: gameObj.phase,
+  };
+};
+
 export {
   createGame,
   joinGame,
@@ -313,4 +373,6 @@ export {
   playerAnswerGameEvent,
   playerGuessGameEvent,
   roundEndGameEvent,
+  nextQuestionGameEvent,
+  endGameEvent,
 };
