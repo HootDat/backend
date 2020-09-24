@@ -188,8 +188,16 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
   // remove player from game and update game in redis
   const playerObj = gameObj.players[cId];
   delete gameObj.players[cId];
+
+  const newPlayers = Object.values(gameObj.players);
+  let newHost = "";
+  if (gameObj.host === cId) {
+    // reassign host
+    newHost = newPlayers[randomIntFromInterval(0, newPlayers.length - 1)];
+  }
+
   await serializeAndUpdateGameObject(gameObj);
-  return playerObj;
+  return { playerObj, newHost };
 };
 
 const registerUserOnline = async (

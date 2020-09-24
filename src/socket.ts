@@ -197,10 +197,13 @@ const useMetaGameControllers = (socket: any, io: any) => {
       };
 
       // update redis
-      const playerObj = await leaveGame(cId, gameCode);
+      const { playerObj, newHost } = await leaveGame(cId, gameCode);
 
       // tell everyone that this player has left
       socket.to(gameCode).emit("game.event.player.leave", playerObj);
+
+      // if new host, tell everyone too
+      socket.to(gameCode).emit("game.transition.event", { newHost });
     } catch (e) {
       console.error("game.leave error", e);
       socket.emit("game.leave.error");
