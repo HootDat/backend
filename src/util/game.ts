@@ -213,7 +213,7 @@ const registerUserOnline = async (
   await serializeAndUpdateGameObject(gameObj);
 
   // TODO: consider checking if game's started yet or not before sanitizing
-  return sanitizeGameObjectForPlayer(cId, gameObj);
+  return gameObj;
 };
 
 const registerUserOffline = async (cId: string): Promise<any> => {
