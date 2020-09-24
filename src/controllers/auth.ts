@@ -59,7 +59,9 @@ export const loginWithFacebook = async (
     // Verify the facebook access token
     const { value: reqBody, error } = fbAuthRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error.message);
+      return res
+        .status(400)
+        .json({ message: `malformed request body: ${error.message}` });
     }
     const accessToken: string = reqBody.accessToken;
 

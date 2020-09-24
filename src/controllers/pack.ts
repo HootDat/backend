@@ -61,7 +61,9 @@ export const createPack = async (
 
     const { value: body, error } = createPackRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error.message);
+      return res
+        .status(400)
+        .json({ message: `malformed request body: ${error.message}` });
     }
 
     const name: string = body.name;
@@ -93,6 +95,9 @@ const editPackRequestSchema = Joi.object({
   updatedAt: Joi.string().isoDate().required(),
 }).unknown();
 
+// Edit the pack
+// When the response code is 400, a json body will be returned with a "message" key
+// which explains the reason.
 export const editPack = async (
   req: Request,
   res: Response,
@@ -106,21 +111,23 @@ export const editPack = async (
     }
     const packID = req.params.id;
     if (!packID) {
-      return res.sendStatus(400);
+      return res.status(400).json({ message: "id is required" });
     }
     const pack = await getCustomRepository(PackRepository).findOne(packID);
     if (!pack) {
-      return res.status(400).send("pack does not exist");
+      return res.status(400).json({ message: "pack does not exist" });
     }
     // Only the owner can edit the pack
     if (pack.owner?.id !== userID) {
-      return res.sendStatus(401);
+      return res.sendStatus(403);
     }
 
     // Read the body
     const { value: body, error } = editPackRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error.message);
+      return res
+        .status(400)
+        .json({ message: `malformed request body: ${error.message}` });
     }
 
     const name: string | undefined = body.name;
@@ -128,9 +135,6 @@ export const editPack = async (
     const questions: string[] | undefined = body.questions;
     const isPublic: boolean | undefined = body.public;
     const updatedAt: Date = new Date(body.updatedAt);
-    console.log(body);
-    console.log(body.updated);
-    console.log(updatedAt);
 
     const packRepository = getCustomRepository(PackRepository);
     const updateResult = await packRepository.updateFromRequest(
@@ -183,7 +187,7 @@ export const deletePack = async (
     }
     // Only the owner can delete the pack
     if (pack.owner?.id !== userID) {
-      return res.sendStatus(401);
+      return res.sendStatus(403);
     }
     await packRepository.remove(pack);
     res.sendStatus(204);
