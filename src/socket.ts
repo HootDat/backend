@@ -20,6 +20,7 @@ import {
   endGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
+import { PHASE_END } from "./constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
@@ -46,7 +47,7 @@ const withAuthentication = (io: any) =>
       // join the new game.
 
       // if player was in game which is still ongoing
-      if (gameObj) {
+      if (Object.keys(gameObj).length > 0 && gameObj.phase !== PHASE_END) {
         const {
           gameCode,
           players: { cId: playerObj },
@@ -68,7 +69,8 @@ const withAuthentication = (io: any) =>
       }
       next();
     } catch (e) {
-      next(new Error("withAuthentication error"));
+      console.log("withAuthentication error", e);
+      next(new Error("Authentication error."));
     }
   });
 
