@@ -35,38 +35,41 @@ const withAuthentication = (io: any) =>
       gameCode: null,
     };
 
-    // register user presence
-    const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
-    io.to(userData?.socketId).emit("auth.loggedInElsewhere", {});
-    const gameObj = await registerUserOnline(cId, socketId);
+    try {
+      // register user presence
+      const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
+      io.to(userData?.socketId).emit("auth.loggedInElsewhere", {});
+      const gameObj = await registerUserOnline(cId, socketId);
 
-    // TODO: if user provided gameCode in handshake query which is not
-    // the same as the game he's in, boot him from the game and let him
-    // join the new game.
+      // TODO: if user provided gameCode in handshake query which is not
+      // the same as the game he's in, boot him from the game and let him
+      // join the new game.
 
-    // if player was in game which is still ongoing
-    if (gameObj) {
-      const {
-        gameCode,
-        players: { cId: playerObj },
-      } = gameObj;
+      // if player was in game which is still ongoing
+      if (gameObj) {
+        const {
+          gameCode,
+          players: { cId: playerObj },
+        } = gameObj;
 
-      // tell everyone in the game that this user came online
-      io.to(gameCode).emit("game.event.player.update", playerObj);
+        // tell everyone in the game that this user came online
+        io.to(gameCode).emit("game.event.player.update", playerObj);
 
-      // tell client it's joined a game, and sub socket to game room
-      // TODO: need to check if this even gets received by client since it's
-      // before the "connection" event.
-      socket.emit("game.join", gameObj);
-      socket.join(gameCode);
+        // tell client it's joined a game, and sub socket to game room
+        // TODO: need to check if this even gets received by client since it's
+        // before the "connection" event.
+        socket.emit("game.join", gameObj);
+        socket.join(gameCode);
 
-      // update socket property for easier bookkeeping
-      socket.game = {
-        gameCode,
-      };
+        // update socket property for easier bookkeeping
+        socket.game = {
+          gameCode,
+        };
+      }
+      next();
+    } catch (e) {
+      next(new Error("withAuthentication error"));
     }
-
-    next();
   });
 
 const useMetaGameControllers = (socket: any, io: any) => {
