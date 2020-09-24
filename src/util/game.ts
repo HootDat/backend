@@ -441,6 +441,7 @@ const roundEndGameEvent = async (gameCode: string): Promise<any> => {
     currAnswerer: gameObj.currAnswerer,
     phase: gameObj.phase,
     results: gameObj.results,
+    numQns: gameObj.questions.length,
   };
 };
 

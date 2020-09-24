@@ -246,7 +246,11 @@ const useGameControllers = (socket: any, io: any) => {
       socket.to(gameCode).emit("game.event.questions.update", questions);
     } catch (e) {
       console.error("game.event.questions.update error", e);
-      socket.emit("game.event.questions.update.error");
+      if (e.message === "No such game exists.") {
+        socket.emit("game.kick", e.message);
+      } else {
+        socket.emit("game.event.questions.update.error");
+      }
     }
   });
 
@@ -263,7 +267,11 @@ const useGameControllers = (socket: any, io: any) => {
       );
     } catch (e) {
       console.error("game.event.host.start error", e);
-      socket.emit("game.event.host.start.error");
+      if (e.message === "No such game exists.") {
+        socket.emit("game.kick", e.message);
+      } else {
+        socket.emit("game.event.host.start.error");
+      }
     }
   });
 
@@ -271,14 +279,14 @@ const useGameControllers = (socket: any, io: any) => {
   const nextQuestionOrEndGame = async (gameCode: any, gameObj: any) => {
     // decide whether to advance to the answering phase of
     // next question OR the game end screen
-    if (gameObj.qnNum + 1 < gameObj.questions.length) {
+    if (gameObj.qnNum + 1 < gameObj.numQns) {
       // we advance to the next question
       const results = await nextQuestionGameEvent(gameCode);
 
       // and send each player their own version of the updated game object
       results.forEach(
         ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
-          socket.to(socketId).emit("game.event.transition", gameObj);
+          io.to(socketId).emit("game.event.transition", gameObj);
         },
       );
     } else {
@@ -300,7 +308,7 @@ const useGameControllers = (socket: any, io: any) => {
       // authorized already
       if (playerRole === "answerer") {
         let gameObj = await playerAnswerGameEvent(cId, answer, gameCode);
-        socket.to(gameCode).emit("game.event.transition", gameObj);
+        io.to(gameCode).emit("game.event.transition", gameObj);
 
         // TODO: any cleaner way to do the below timeouts?
 
@@ -338,7 +346,11 @@ const useGameControllers = (socket: any, io: any) => {
       }
     } catch (e) {
       console.error("game.event.player.answer error", e);
-      socket.emit("game.event.player.answer.error");
+      if (e.message === "No such game exists.") {
+        socket.emit("game.kick", e.message);
+      } else {
+        socket.emit("game.event.player.answer.error");
+      }
     }
   });
 };
