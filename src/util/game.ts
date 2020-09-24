@@ -21,7 +21,7 @@ const padCode = (code: number): string =>
   String(code).padStart(GAMECODE_MAX, "0").substr(-GAMECODE_MAX);
 
 const generateGameCode = (): string =>
-  padCode(randomIntFromInterval(0, (10 ^ GAMECODE_MAX) - 1));
+  padCode(randomIntFromInterval(0, Math.pow(10, GAMECODE_MAX) - 1));
 
 const isInUse = async (gameCode: string): Promise<boolean> => {
   try {
@@ -69,13 +69,50 @@ const deserializeGameObject = (gameObjectSerialized: any): any => ({
 
 const getAndDeserializeGameObject = async (gameCode: string): Promise<any> => {
   const gameObj = await redis.hgetall(`${K_GAME}-${gameCode}`);
-  if (!gameObj) throw new Error("No such game exists.");
+  if (!gameObj) return {};
 
   return deserializeGameObject(gameObj);
 };
 
-const serializeAndUpdateGameObject = (gameObj: any) =>
-  redis.hmset(`${K_GAME}-${gameObj.gameCode}`, serializeGameObject(gameObj));
+const mapPlayerToGame = async (cId: string, gameCode: string) => {
+  const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
+  await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
+};
+
+const deleteGameObject = async (gameObj: any) => {
+  Object.keys(gameObj.players).forEach((_cId) => {
+    mapPlayerToGame(_cId, "");
+  });
+  await redis.del(`${K_GAME}-${gameObj.gameCode}`);
+};
+
+const serializeAndUpdateGameObject = async (
+  gameObj: any,
+  resetExpiry = true,
+) => {
+  await redis.hmset(
+    `${K_GAME}-${gameObj.gameCode}`,
+    serializeGameObject(gameObj),
+  );
+
+  if (resetExpiry) {
+    console.log("RESET EXPIRY");
+    if (
+      Object.values(gameObj.players).reduce(
+        (acc, curr: any) => acc || curr.online,
+        false,
+      )
+    ) {
+      // update expiry (10mins) if >= 1 online
+      console.log("HERE 1");
+      redis.expire(`${K_GAME}-${gameObj.gameCode}`, 10 * 60);
+    } else {
+      console.log("HERE 2");
+      // update expiry (1min) if none online
+      redis.expire(`${K_GAME}-${gameObj.gameCode}`, 1 * 60);
+    }
+  }
+};
 
 // remove roles from all players except client
 const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
@@ -85,11 +122,6 @@ const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
   };
 
   return sanitizedGameObj;
-};
-
-const mapPlayerToGame = async (cId: string, gameCode: string | null) => {
-  const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
-  await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
 };
 
 const createGame = async (cId: string): Promise<any> => {
@@ -111,6 +143,8 @@ const createGame = async (cId: string): Promise<any> => {
 
 const joinGame = async (cId: string, gameCode: string): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
 
   // add player to game and update game in redis
   gameObj.players[cId] = createBasePlayerObject(cId);
@@ -118,17 +152,21 @@ const joinGame = async (cId: string, gameCode: string): Promise<any> => {
 
   // create player->gameCode mapping
   await mapPlayerToGame(cId, gameCode);
+
+  return gameObj;
 };
 
 const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
+  // remove player->gameCode mapping
+  await mapPlayerToGame(cId, "");
+
+  // fail silently
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0) return;
 
   // remove player from game and update game in redis
   gameObj.players[cId] = {};
   await serializeAndUpdateGameObject(gameObj);
-
-  // remove player->gameCode mapping
-  await mapPlayerToGame(cId, null);
 };
 
 const registerUserOnline = async (
@@ -140,6 +178,12 @@ const registerUserOnline = async (
   if (!gameCode) return {}; // not in game, we are done
 
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0 || !gameObj.players[cId]) {
+    // if the game is no longer valid or he's not in the game to begin with,
+    // remove cId -> gameCode mapping
+    await mapPlayerToGame(cId, "");
+    return {};
+  }
 
   // set player online status to true and update game in redis
   gameObj.players[cId].online = true;

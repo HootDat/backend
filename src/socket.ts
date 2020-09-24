@@ -40,34 +40,46 @@ const withAuthentication = (io: any) =>
       // register user presence
       const userData = await redis.hgetall(`${K_PRESENCE}-${cId}`);
       if (userData && Object.keys(userData).length > 0) {
-        io.to(userData.socketId).emit("auth.loggedInElsewhere", {});
+        io.to(userData.socketId).emit("auth.loggedInElsewhere");
         console.log(
-          `Multiple logins detected. Kicking out ${userData.socketId} from all rooms.`,
+          `Multiple logins detected for ${cId}. Kicking out old socket ${userData.socketId} from all rooms.`,
         );
-        console.log(io.sockets.adapter.rooms);
-        console.log(io.sockets.connected[socketId]);
+        const _socket = io.sockets.sockets[userData.socketId];
+        if (_socket && _socket.rooms) {
+          Object.keys(_socket.rooms).forEach((room: string) => {
+            console.log(`Kicking ${userData.socketId} from ${room}`),
+              _socket.leave(room);
+          });
+        }
       }
+
       const gameObj = await registerUserOnline(cId, socketId);
 
       // TODO: if user provided gameCode in handshake query which is not
       // the same as the game he's in, boot him from the game and let him
       // join the new game.
 
-      // if player was in game which is still ongoing
-      if (Object.keys(gameObj).length > 0 && gameObj.phase !== PHASE_END) {
+      // if player was in game which is still ongoing (and he's part of)
+      if (Object.keys(gameObj).length > 0) {
         const {
+          phase,
           gameCode,
-          players: { cId: playerObj },
+          players: { [cId]: playerObj },
         } = gameObj;
 
-        // tell everyone in the game that this user came online
-        io.to(gameCode).emit("game.event.player.update", playerObj);
+        if (phase !== PHASE_END) {
+          // tell everyone in the game that this user came online
+          io.to(gameCode).emit("game.event.player.update", playerObj);
 
-        // tell client it's joined a game, and sub socket to game room
+          // subscribe the socket to the game room
+          socket.join(gameCode);
+        }
+
         // TODO: need to check if this even gets received by client since it's
         // before the "connection" event.
+
+        // tell client it's joined a game, and sub socket to game room
         socket.emit("game.join", gameObj);
-        socket.join(gameCode);
 
         // update socket property for easier bookkeeping
         socket.game = {
@@ -86,6 +98,21 @@ const useMetaGameControllers = (socket: any, io: any) => {
 
   socket.on("game.create", async () => {
     try {
+      if (socket?.game?.gameCode) {
+        // TODO: improve this perhaps?
+
+        // if for some reason the client tries to create a game
+        // while it's already in a game, unsub socket from game room
+        // and remove the client from the game itself
+        socket.leave(socket.game.gameCode);
+        const playerObj = await leaveGame(cId, socket.game.gameCode);
+        io.to(socket.game.gameCode).emit("game.event.player.leave", playerObj);
+
+        socket.game = {
+          gameCode: null,
+        };
+      }
+
       const gameObj = await createGame(cId);
       const { gameCode } = gameObj;
 
@@ -107,13 +134,28 @@ const useMetaGameControllers = (socket: any, io: any) => {
 
   socket.on("game.join", async (data: any) => {
     try {
+      if (socket?.game?.gameCode) {
+        // TODO: improve this perhaps?
+
+        // if for some reason the client tries to join a game
+        // while it's already in a game, unsub socket from game room
+        // and remove the client from the game itself
+        socket.leave(socket.game.gameCode);
+        const playerObj = await leaveGame(cId, socket.game.gameCode);
+        io.to(socket.game.gameCode).emit("game.event.player.leave", playerObj);
+
+        socket.game = {
+          gameCode: null,
+        };
+      }
+
       const { gameCode } = data;
       if (!gameCode) throw new Error("No gameCode provided.");
 
       // update redis and get gameObj
       const gameObj = await joinGame(cId, gameCode);
       const {
-        players: { cId: playerObj },
+        players: { [cId]: playerObj },
       } = gameObj;
 
       // tell client it's joined a game, and sub socket to game room
@@ -129,7 +171,11 @@ const useMetaGameControllers = (socket: any, io: any) => {
       socket.to(gameCode).emit("game.event.player.join", playerObj);
     } catch (e) {
       console.error("game.join error", e);
-      socket.emit("game.join.error");
+      if (e.message === "No such game exists.") {
+        socket.emit("game.join.error", e.message);
+      } else {
+        socket.emit("game.join.error");
+      }
     }
   });
 
@@ -167,7 +213,7 @@ const useMetaGameControllers = (socket: any, io: any) => {
       const gameObj = await registerUserOffline(cId);
       const {
         gameCode,
-        players: { cId: playerObj },
+        players: { [cId]: playerObj },
       } = gameObj;
 
       // unsub socket from game room
@@ -299,7 +345,7 @@ const setupSocket = (server: any) => {
   withAuthentication(io);
 
   io.on("connection", (socket: any) => {
-    console.log("Socket connection successful.");
+    console.log(`Socket (${socket.cId}, ${socket.id}) connected successfully.`);
     useMetaGameControllers(socket, io);
     useGameControllers(socket, io);
   });
