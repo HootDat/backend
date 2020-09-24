@@ -204,6 +204,7 @@ const useGameControllers = (socket: any, io: any) => {
     }
   });
 
+  // TODO: move this somewhere else
   const nextQuestionOrEndGame = async (gameCode: any, gameObj: any) => {
     // decide whether to advance to the answering phase of
     // next question OR the game end screen
@@ -237,6 +238,8 @@ const useGameControllers = (socket: any, io: any) => {
       if (playerRole === "answerer") {
         let gameObj = await playerAnswerGameEvent(cId, answer, gameCode);
         socket.to(gameCode).emit("game.event.transition", gameObj);
+
+        // TODO: any cleaner way to do the below timeouts?
 
         // let's transition to PHASE_QN_RESULTS of this question in 8s
         gameObj = await roundEndGameEvent(gameCode);
