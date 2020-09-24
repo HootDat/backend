@@ -21,7 +21,7 @@ import {
   sanitizeGameObjectForPlayer,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
-import { PHASE_END } from "./constants/game";
+import { PHASE_END, ROUND_TIMER } from "./constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
@@ -327,12 +327,12 @@ const useGameControllers = (socket: any, io: any) => {
             // or the PHASE_END screen, if this was the last question
             setTimeout(() => {
               nextQuestionOrEndGame(gameCode, gameObj);
-            }, 8000);
+            }, ROUND_TIMER);
           } catch (e) {
             // Transition already handled elsewhere. Can "fail" silently.
             console.log("setTimeout error:", e);
           }
-        }, 8000);
+        }, ROUND_TIMER);
       } else {
         let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
 
@@ -350,7 +350,7 @@ const useGameControllers = (socket: any, io: any) => {
           // or the PHASE_END screen, if this was the last question
           setTimeout(() => {
             nextQuestionOrEndGame(gameCode, gameObj);
-          }, 8000);
+          }, ROUND_TIMER);
         }
       }
     } catch (e) {

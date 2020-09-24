@@ -10,6 +10,8 @@ const PHASE_END = "end";
 const ROLE_ANSWERER = "answerer";
 const ROLE_GUESSER = "guesser";
 
+const ROUND_TIMER = 10000;
+
 export {
   PHASE_LOBBY,
   PHASE_QN_ANSWER,
@@ -18,4 +20,5 @@ export {
   PHASE_END,
   ROLE_ANSWERER,
   ROLE_GUESSER,
+  ROUND_TIMER,
 };
