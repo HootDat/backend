@@ -264,9 +264,12 @@ const updateQuestionsGameEvent = async (
 const setNextQuestion = (gameObj: any): any => {
   gameObj.qnNum += 1;
   gameObj.phase = PHASE_QN_ANSWER;
-  const playerCIds = Object.keys(gameObj.players);
-  const numPlayers = playerCIds.length;
-  const currAnswerer = playerCIds[randomIntFromInterval(0, numPlayers - 1)];
+  const onlinePlayerCIds = Object.keys(gameObj.players).filter(
+    (player: any) => player.online,
+  );
+  const numPlayers = onlinePlayerCIds.length;
+  const currAnswerer =
+    onlinePlayerCIds[randomIntFromInterval(0, numPlayers - 1)];
   gameObj.currAnswerer = currAnswerer;
 
   return gameObj;
