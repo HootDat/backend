@@ -173,7 +173,7 @@ const joinGame = async (
   // create player->gameCode mapping
   await mapPlayerToGame(cId, gameCode);
 
-  return gameObj;
+  return sanitizeGameObjectForPlayer(cId, gameObj);
 };
 
 const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
@@ -316,7 +316,7 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
     0,
   );
 
-  if (numOnline < 2)
+  if (numOnline < 3)
     throw new Error("Game must have >= 3 online players to start.");
 
   // ######################################################
