@@ -16,6 +16,8 @@ import {
   playerAnswerGameEvent,
   playerGuessGameEvent,
   roundEndGameEvent,
+  nextQuestionGameEvent,
+  endGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 
@@ -202,6 +204,26 @@ const useGameControllers = (socket: any, io: any) => {
     }
   });
 
+  const nextQuestionOrEndGame = async (gameCode: any, gameObj: any) => {
+    // decide whether to advance to the answering phase of
+    // next question OR the game end screen
+    if (gameObj.qnNum + 1 < gameObj.questions.length) {
+      // we advance to the next question
+      const results = await nextQuestionGameEvent(gameCode);
+
+      // and send each player their own version of the updated game object
+      results.forEach(
+        ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
+          socket.to(socketId).emit("game.event.transition", gameObj);
+        },
+      );
+    } else {
+      // we end the game
+      const gameObj = endGameEvent(gameCode);
+      io.to(gameCode).emit("game.event.transition", gameObj);
+    }
+  };
+
   socket.on("game.event.player.answer", async (data: any) => {
     try {
       const { gameCode, answer: answerRaw } = data;
@@ -216,22 +238,36 @@ const useGameControllers = (socket: any, io: any) => {
         let gameObj = await playerAnswerGameEvent(cId, answer, gameCode);
         socket.to(gameCode).emit("game.event.transition", gameObj);
 
-        // let's transition to PHASE_QN_RESULTS of this round in 8s
+        // let's transition to PHASE_QN_RESULTS of this question in 8s
         gameObj = await roundEndGameEvent(gameCode);
-        setTimeout(() => {
+        setTimeout(async () => {
+          // advance everyone to the results screen of the question
           io.to(gameCode).emit("game.event.transition", gameObj);
-        }, 8000); // 8s
+
+          // after 8s, transition to the PHASE_QN_ANSWER of the next question
+          // or the PHASE_END screen, if this was the last question
+          setTimeout(() => {
+            nextQuestionOrEndGame(gameCode, gameObj);
+          }, 8000);
+        }, 8000);
       } else {
         let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
 
         // if everyone has answered,
-        // let's transition to PHASE_QN_RESULTS of this round
+        // let's transition to PHASE_QN_RESULTS of this question
         if (
           gameObj.results[gameObj.qnNum - 1].length >=
           Object.values(gameObj.players).length
         ) {
+          // transition to PHASE_QN_RESULTS of the question
           gameObj = await roundEndGameEvent(gameCode);
           io.to(gameCode).emit("game.event.transition", gameObj);
+
+          // after 8s, transition to the PHASE_QN_ANSWER of the next question
+          // or the PHASE_END screen, if this was the last question
+          setTimeout(() => {
+            nextQuestionOrEndGame(gameCode, gameObj);
+          }, 8000);
         }
       }
     } catch (e) {
