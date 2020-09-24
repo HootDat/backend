@@ -96,7 +96,7 @@ const editPackRequestSchema = Joi.object({
 }).unknown();
 
 // Edit the pack
-// When the response code is 400, a json body will be returned with a "message" key
+// When the response code is 400, a json body will be returned with a "error" key
 // which explains the reason.
 export const editPack = async (
   req: Request,
