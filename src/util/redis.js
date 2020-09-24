@@ -13,6 +13,7 @@ const ops = [
   "get",
   "mget",
   "set",
+  "del",
   "hset",
   "hget",
   "hdel",
@@ -20,6 +21,7 @@ const ops = [
   "hmset",
   "hmget",
   "hsetnx",
+  "expire",
 ];
 
 ops.forEach((op) => {
@@ -29,6 +31,7 @@ ops.forEach((op) => {
 wrappedRedis.executeMulti = (redisMulti) =>
   new Promise((resolve, reject) => {
     redisMulti.exec((err, replies) => {
+      console.log("REDIS:", err, replies);
       if (err) return reject(err);
       return resolve(replies);
     });
