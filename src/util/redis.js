@@ -13,6 +13,7 @@ const ops = [
   "get",
   "mget",
   "set",
+  "del",
   "hset",
   "hget",
   "hdel",
@@ -20,6 +21,7 @@ const ops = [
   "hmset",
   "hmget",
   "hsetnx",
+  "expire",
 ];
 
 ops.forEach((op) => {
