@@ -353,6 +353,7 @@ const useGameControllers = (socket: any, io: any) => {
       } else {
         let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
 
+        const numAnswered = Object.keys(gameObj.results[gameObj.qnNum]).length;
         const numOnline = Object.values(gameObj.players).reduce(
           (acc: number, curr: any) => acc + (curr.online ? 1 : 0),
           0,
@@ -360,7 +361,7 @@ const useGameControllers = (socket: any, io: any) => {
 
         // if everyone has answered,
         // let's transition to PHASE_QN_RESULTS of this question
-        if (gameObj.results[gameObj.qnNum].length >= numOnline) {
+        if (numAnswered >= numOnline) {
           // transition to PHASE_QN_RESULTS of the question
           gameObj = await roundEndGameEvent(gameCode);
           io.to(gameCode).emit("game.event.transition", gameObj);

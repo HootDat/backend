@@ -187,7 +187,7 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
 
   // remove player from game and update game in redis
   const playerObj = gameObj.players[cId];
-  gameObj.players[cId] = {};
+  delete gameObj.players[cId];
   await serializeAndUpdateGameObject(gameObj);
   return playerObj;
 };
