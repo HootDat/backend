@@ -350,7 +350,7 @@ const playAgainGameEvent = async (
   cId: string,
   gameCode: string,
 ): Promise<any> => {
-  let gameObj = await getAndDeserializeGameObject(gameCode);
+  const gameObj = await getAndDeserializeGameObject(gameCode);
 
   // if host is not cId, error
   if (
