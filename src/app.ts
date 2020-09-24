@@ -1,12 +1,9 @@
 import bodyParser from "body-parser";
 import compression from "compression"; // compresses requests
 import cors from "cors";
-import express from "express";
-import flash from "express-flash";
+import express, { NextFunction, Request, Response } from "express";
 import http from "http";
-import lusca from "lusca";
 import morgan from "morgan";
-import path from "path";
 import "reflect-metadata";
 import { createConnection } from "typeorm";
 import * as authController from "./controllers/auth";
@@ -28,14 +25,9 @@ createConnection()
     const app = express();
 
     // Express configuration
-    app.set("views", path.join(__dirname, "../views"));
-    app.set("view engine", "pug");
     app.use(compression());
     app.use(bodyParser.json());
     app.use(bodyParser.urlencoded({ extended: true }));
-    app.use(flash());
-    app.use(lusca.xframe("SAMEORIGIN"));
-    app.use(lusca.xssProtection(true));
     if (config.environment === "production") {
       app.use(morgan("combined"));
     } else {
@@ -43,13 +35,9 @@ createConnection()
     }
 
     const corsOptions = {
-      exposedHeaders: "Authorization"
+      exposedHeaders: "Authorization",
     };
     app.use(cors(corsOptions));
-
-    app.use(
-      express.static(path.join(__dirname, "public"), { maxAge: 31557600000 }),
-    );
 
     app.use(extractJwt);
 
@@ -70,6 +58,13 @@ createConnection()
       app.post("/debug/seed", debugController.seed);
     }
 
+    app.use(
+      (error: Error, _req: Request, res: Response, _next: NextFunction) => {
+        logger.warn("unhandled error", error);
+        return res.status(500).json({ error: "internal server error" });
+      }
+    );
+
     /**
      * Start Express server and setup socket.io server
      */
@@ -77,7 +72,7 @@ createConnection()
     setupSocket(server);
     server.listen(config.port, () => {
       logger.info(
-        `App is running at http://localhost:${config.port} in ${config.environment} mode`,
+        `App is running at http://localhost:${config.port} in ${config.environment} mode`
       );
     });
   })

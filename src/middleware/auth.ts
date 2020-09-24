@@ -20,7 +20,7 @@ export const extractJwt = (req: Request, res: Response, next: NextFunction) => {
   // We terminate the request if we can't extract the token
   const [type, token] = authHeader.split(" ", 2);
   if (type !== "Bearer") {
-    return res.status(401).send("unsupported token type");
+    return res.status(401).json({ error: "unsupported token type" });
   }
 
   // Verify token
@@ -30,13 +30,13 @@ export const extractJwt = (req: Request, res: Response, next: NextFunction) => {
     req.jwt = payload;
     return next();
   } catch (error) {
-    return res.status(401).send(`failed to authenticate: ${error}`);
+    return res.status(401).json({ error: `failed to authenticate: ${error}` });
   }
 };
 
 export const requireJwt = (req: Request, res: Response, next: NextFunction) => {
   if (!req.jwt) {
-    return res.status(401).send("login required");
+    return res.status(401).json({ error: "login required" });
   }
   next();
 };

@@ -18,7 +18,7 @@ export const getPacks = async (
   try {
     const { value: body, error } = getPacksRequestSchema.validate(req.query);
     if (error) {
-      return res.status(400).send(error.message);
+      return res.status(400).json({ error: error.message });
     }
 
     const categories: string[] | undefined = body.categories;
@@ -56,12 +56,14 @@ export const createPack = async (
   try {
     const userID = req.jwt?.userID;
     if (!userID) {
-      return res.sendStatus(401);
+      return res.status(401).json({ error: "login required" });
     }
 
     const { value: body, error } = createPackRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error.message);
+      return res
+        .status(400)
+        .json({ error: `malformed request body: ${error.message}` });
     }
 
     const name: string = body.name;
@@ -93,6 +95,9 @@ const editPackRequestSchema = Joi.object({
   updatedAt: Joi.string().isoDate().required(),
 }).unknown();
 
+// Edit the pack
+// When the response code is 400, a json body will be returned with a "error" key
+// which explains the reason.
 export const editPack = async (
   req: Request,
   res: Response,
@@ -102,25 +107,27 @@ export const editPack = async (
     // Make sure the user is authorised
     const userID = req.jwt?.userID;
     if (!userID) {
-      return res.sendStatus(401);
+      return res.status(401).json({ error: "login required" });
     }
     const packID = req.params.id;
     if (!packID) {
-      return res.sendStatus(400);
+      return res.status(400).json({ error: "pack id is required" });
     }
     const pack = await getCustomRepository(PackRepository).findOne(packID);
     if (!pack) {
-      return res.status(400).send("pack does not exist");
+      return res.status(400).json({ error: "pack does not exist" });
     }
     // Only the owner can edit the pack
     if (pack.owner?.id !== userID) {
-      return res.sendStatus(401);
+      return res.status(403).json({ error: "permission denied" });
     }
 
     // Read the body
     const { value: body, error } = editPackRequestSchema.validate(req.body);
     if (error) {
-      return res.status(400).send(error.message);
+      return res
+        .status(400)
+        .json({ error: `malformed request body: ${error.message}` });
     }
 
     const name: string | undefined = body.name;
@@ -128,9 +135,6 @@ export const editPack = async (
     const questions: string[] | undefined = body.questions;
     const isPublic: boolean | undefined = body.public;
     const updatedAt: Date = new Date(body.updatedAt);
-    console.log(body);
-    console.log(body.updated);
-    console.log(updatedAt);
 
     const packRepository = getCustomRepository(PackRepository);
     const updateResult = await packRepository.updateFromRequest(
@@ -142,7 +146,7 @@ export const editPack = async (
       isPublic
     );
     if (updateResult === "pack does not exist") {
-      return res.status(400).json({ message: "pack does not exist" });
+      return res.status(400).json({ error: "pack does not exist" });
     } else if (
       updateResult instanceof Object &&
       "updatedCopy" in updateResult
@@ -150,11 +154,11 @@ export const editPack = async (
       return res.json(updateResult.updatedCopy);
     } else if (updateResult instanceof Object && "serverCopy" in updateResult) {
       return res.status(400).json({
-        message: "server has a newer copy",
+        error: "server has a newer copy",
         serverCopy: updateResult.serverCopy,
       });
     } else {
-      return res.status(500);
+      return res.status(500).json({ error: "internal server error" });
     }
   } catch (error) {
     next(error);
@@ -170,20 +174,20 @@ export const deletePack = async (
     // Make sure the user is authorised
     const userID = req.jwt?.userID;
     if (!userID) {
-      return res.sendStatus(401);
+      return res.status(401).json({ error: "login required" });
     }
     const packID = req.params.id;
     if (!packID) {
-      return res.sendStatus(400);
+      return res.status(400).json({ error: "pack id is required" });
     }
     const packRepository = getCustomRepository(PackRepository);
     const pack = await packRepository.findOne(packID);
     if (!pack) {
-      return res.status(400).send("pack does not exist");
+      return res.status(400).json({ error: "pack does not exist" });
     }
     // Only the owner can delete the pack
     if (pack.owner?.id !== userID) {
-      return res.sendStatus(401);
+      return res.status(403).json({ error: "permission denied" });
     }
     await packRepository.remove(pack);
     res.sendStatus(204);
