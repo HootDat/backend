@@ -272,6 +272,8 @@ const setNextQuestion = (gameObj: any): any => {
     onlinePlayerCIds[randomIntFromInterval(0, numPlayers - 1)];
   gameObj.currAnswerer = currAnswerer;
 
+  console.log("currAnswerer:", currAnswerer);
+
   return gameObj;
 };
 
