@@ -14,13 +14,16 @@ import {
   ROLE_GUESSER,
 } from "../constants/game";
 
+const GAMECODE_MAX = 4;
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper
 
 const padCode = (code: number): string =>
-  String(code).padStart(6, "0").substr(-6);
+  String(code)
+    .padStart(GAMECODE_MAX.toString().length, "0")
+    .substr(-GAMECODE_MAX.toString().length);
 
 const generateGameCode = (): string =>
-  padCode(randomIntFromInterval(0, 999999));
+  padCode(randomIntFromInterval(0, GAMECODE_MAX));
 
 const isInUse = async (gameCode: string): Promise<boolean> => {
   try {
