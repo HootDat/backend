@@ -240,6 +240,7 @@ const useGameControllers = (socket: any, io: any) => {
       const { gameCode, questions } = data;
       await updateQuestionsGameEvent(cId, gameCode, questions);
 
+      // no feedback for the host here, optimistic rendering on client-side
       socket.to(gameCode).emit("game.event.questions.update", questions);
     } catch (e) {
       console.error("game.event.questions.update error", e);

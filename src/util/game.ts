@@ -103,9 +103,12 @@ const serializeAndUpdateGameObject = async (
         false,
       )
     ) {
+      // TODO: change back to 10 mins after testing
+
       // update expiry (10mins) if >= 1 online
       console.log("HERE 1");
-      redis.expire(`${K_GAME}-${gameObj.gameCode}`, 10 * 60);
+      redis.expire(`${K_GAME}-${gameObj.gameCode}`, 100 * 60);
+      /* redis.expire(`${K_GAME}-${gameObj.gameCode}`, 10 * 60); */
     } else {
       console.log("HERE 2");
       // update expiry (1min) if none online
@@ -160,13 +163,15 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
   // remove player->gameCode mapping
   await mapPlayerToGame(cId, "");
 
-  // fail silently
+  // fail silently if game does not exist
   const gameObj = await getAndDeserializeGameObject(gameCode);
   if (!gameObj || Object.keys(gameObj).length === 0) return;
 
   // remove player from game and update game in redis
+  const playerObj = gameObj.players[cId];
   gameObj.players[cId] = {};
   await serializeAndUpdateGameObject(gameObj);
+  return playerObj;
 };
 
 const registerUserOnline = async (
@@ -213,11 +218,19 @@ const updateQuestionsGameEvent = async (
   cId: string,
   gameCode: string,
   questions: any,
-): Promise<any> => {
+) => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
 
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
+
   // if host is not cId, error
-  if (gameObj.host !== cId) throw new Error("Not authorized.");
+  if (
+    gameObj.host !== cId &&
+    gameObj.players[cId] &&
+    Object.keys(gameObj.players[cId]).length > 0
+  )
+    throw new Error("Not authorized.");
 
   // if wrong phase
   if (gameObj.phase !== PHASE_LOBBY) throw new Error("Wrong phase.");
@@ -225,8 +238,8 @@ const updateQuestionsGameEvent = async (
   gameObj.questions = questions;
   await serializeAndUpdateGameObject(gameObj);
 
-  // TODO: consider checking if game's started yet or not before sanitizing
-  return sanitizeGameObjectForPlayer(cId, gameObj);
+  /*   // TODO: consider checking if game's started yet or not before sanitizing */
+  /*   return sanitizeGameObjectForPlayer(cId, gameObj); */
 };
 
 // this function advances the gameObj to the next question and generates
@@ -261,7 +274,12 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   // checks are passed via a parameterized object
 
   // if host is not cId, error
-  if (gameObj.host !== cId) throw new Error("Not authorized.");
+  if (
+    gameObj.host !== cId &&
+    gameObj.players[cId] &&
+    Object.keys(gameObj.players[cId]).length > 0
+  )
+    throw new Error("Not authorized.");
 
   // if wrong phase
   if (gameObj.phase !== PHASE_LOBBY) throw new Error("Wrong phase.");
