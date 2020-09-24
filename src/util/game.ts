@@ -194,6 +194,7 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
   if (gameObj.host === cId) {
     // reassign host
     newHost = newPlayers[randomIntFromInterval(0, newPlayers.length - 1)];
+    gameObj.host = newHost;
   }
 
   await serializeAndUpdateGameObject(gameObj);
