@@ -190,10 +190,11 @@ const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
   delete gameObj.players[cId];
 
   const newPlayers = Object.values(gameObj.players);
-  let newHost;
+  let newHost: any;
   if (gameObj.host === cId) {
     // reassign host
     newHost = newPlayers[randomIntFromInterval(0, newPlayers.length - 1)];
+    newHost = newHost.cId;
     gameObj.host = newHost;
   }
 
