@@ -18,12 +18,10 @@ const GAMECODE_MAX = 4;
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper
 
 const padCode = (code: number): string =>
-  String(code)
-    .padStart(GAMECODE_MAX.toString().length, "0")
-    .substr(-GAMECODE_MAX.toString().length);
+  String(code).padStart(GAMECODE_MAX, "0").substr(-GAMECODE_MAX);
 
 const generateGameCode = (): string =>
-  padCode(randomIntFromInterval(0, GAMECODE_MAX));
+  padCode(randomIntFromInterval(0, (10 ^ GAMECODE_MAX) - 1));
 
 const isInUse = async (gameCode: string): Promise<boolean> => {
   try {
@@ -56,11 +54,15 @@ const createBaseGameObject = (gameCode: string, cId: string): any => ({
 
 const serializeGameObject = (gameObject: any): any => ({
   ...gameObject,
+  results: JSON.stringify(gameObject.results),
+  questions: JSON.stringify(gameObject.questions),
   players: JSON.stringify(gameObject.players),
 });
 
 const deserializeGameObject = (gameObjectSerialized: any): any => ({
   ...gameObjectSerialized,
+  results: JSON.parse(gameObjectSerialized.results),
+  questions: JSON.parse(gameObjectSerialized.questions),
   players: JSON.parse(gameObjectSerialized.players),
 });
 
@@ -261,7 +263,7 @@ const playerAnswerGameEvent = async (
   gameObj.phase = PHASE_QN_GUESS;
   gameObj.results = [
     ...gameObj.results,
-    { cId: { score: 0, answer, role: "answerer", cId } },
+    { [cId]: { score: 0, answer, role: "answerer", cId } },
   ];
   await serializeAndUpdateGameObject(gameObj);
   return {
@@ -344,7 +346,7 @@ const nextQuestionGameEvent = async (gameCode: string): Promise<any> => {
   // note that socketIds[i] belongs to playerCIds[i]
   return playerCIds.map((_cId: any, i: number) => ({
     socketId: socketIds[i],
-    gameObj: sanitizeGameObjectForPlayer(_cId, gameObj),
+    gameObj: sanitizeGameObjectForPlayer(_cId, gameObj), // TODO: omit redundant fields
   }));
 };
 

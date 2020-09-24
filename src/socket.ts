@@ -82,6 +82,8 @@ const useMetaGameControllers = (socket: any, io: any) => {
       const gameObj = await createGame(cId);
       const { gameCode } = gameObj;
 
+      console.log("game.create called", cId, gameObj);
+
       // tell client its joined a game, and put socket in game room
       socket.emit("game.join", gameObj);
       socket.join(gameCode);
