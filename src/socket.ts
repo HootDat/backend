@@ -243,7 +243,7 @@ const useGameControllers = (socket: any, io: any) => {
 
         // let's transition to PHASE_QN_RESULTS of this question in 8s
         gameObj = await roundEndGameEvent(gameCode);
-        setTimeout(async () => {
+        setTimeout(() => {
           // advance everyone to the results screen of the question
           io.to(gameCode).emit("game.event.transition", gameObj);
 
