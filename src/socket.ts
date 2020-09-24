@@ -114,7 +114,8 @@ const useMetaGameControllers = (socket: any, io: any) => {
         };
       }
 
-      const gameObj = await createGame(cId, data.name, data.iconNum);
+      const { name: playerName, iconNum } = data;
+      const gameObj = await createGame(cId, playerName, iconNum);
       const { gameCode } = gameObj;
 
       console.log("game.create called", cId, gameObj);
@@ -150,11 +151,11 @@ const useMetaGameControllers = (socket: any, io: any) => {
         };
       }
 
-      const { gameCode, name, iconNum } = data;
+      const { gameCode, name: playerName, iconNum } = data;
       if (!gameCode) throw new Error("No gameCode provided.");
 
       // update redis and get gameObj
-      const gameObj = await joinGame(cId, gameCode, name, iconNum);
+      const gameObj = await joinGame(cId, playerName, iconNum, gameCode);
       const {
         players: { [cId]: playerObj },
       } = gameObj;

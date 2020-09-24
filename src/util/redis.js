@@ -31,6 +31,7 @@ ops.forEach((op) => {
 wrappedRedis.executeMulti = (redisMulti) =>
   new Promise((resolve, reject) => {
     redisMulti.exec((err, replies) => {
+      console.log("REDIS:", err, replies);
       if (err) return reject(err);
       return resolve(replies);
     });

@@ -99,14 +99,12 @@ const serializeAndUpdateGameObject = async (
   gameObj: any,
   resetExpiry = true,
 ) => {
-  console.log(gameObj);
   await redis.hmset(
     `${K_GAME}-${gameObj.gameCode}`,
     serializeGameObject(gameObj),
   );
 
   if (resetExpiry) {
-    console.log("RESET EXPIRY");
     if (
       Object.values(gameObj.players).reduce(
         (acc, curr: any) => acc || curr.online,
@@ -116,11 +114,9 @@ const serializeAndUpdateGameObject = async (
       // TODO: change back to 10 mins after testing
 
       // update expiry (10mins) if >= 1 online
-      console.log("HERE 1");
       redis.expire(`${K_GAME}-${gameObj.gameCode}`, 100 * 60);
       /* redis.expire(`${K_GAME}-${gameObj.gameCode}`, 10 * 60); */
     } else {
-      console.log("HERE 2");
       // update expiry (1min) if none online
       redis.expire(`${K_GAME}-${gameObj.gameCode}`, 1 * 60);
     }
@@ -248,7 +244,7 @@ const updateQuestionsGameEvent = async (
   // if host is not cId, error
   if (
     gameObj.host !== cId ||
-    !!gameObj.players[cId] ||
+    !gameObj.players[cId] ||
     Object.keys(gameObj.players[cId]).length === 0
   )
     throw new Error("Not authorized.");
@@ -276,15 +272,14 @@ const setNextQuestion = (gameObj: any): any => {
   return gameObj;
 };
 
-const getSocketIdsFromPlayerCIds = async (playerCIds: any): Promise<any> => {
-  console.log("PLAYERS2:", playerCIds);
+const getSocketIdsFromPlayerCIds = async (
+  playerCIds: Array<any>,
+): Promise<any> => {
   const getSocketIdsMulti = redis.multi();
   playerCIds.forEach((_cId: any) => {
-    getSocketIdsMulti.hgetall(_cId);
+    getSocketIdsMulti.hgetall(`${K_PRESENCE}-${_cId}`);
   });
   const results = await redis.executeMulti(getSocketIdsMulti);
-  console.log("RESULTS:", results);
-  console.log("RESULTS[0]:", results[0]);
   const socketIds = results.map((result: any): any => result.socketId);
 
   return socketIds;
@@ -321,8 +316,6 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
     0,
   );
 
-  console.log("numOnline:", numOnline);
-
   if (numOnline < 2)
     throw new Error("Game must have >= 3 online players to start.");
 
@@ -334,11 +327,11 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   gameObj = setNextQuestion(gameObj);
   const playerCIds = Object.keys(gameObj.players);
 
-  // get socketId of all players in one redis transaction
+  // DISABLE UPDATE FOR NOW. TODO: UNCOMMENT THE UPDATE
   await serializeAndUpdateGameObject(gameObj);
-  console.log("PLAYERS1:", playerCIds);
+
+  // get socketId of all players in one redis transaction
   const socketIds = await getSocketIdsFromPlayerCIds(playerCIds);
-  console.log("SOCKET IDS:", socketIds);
 
   // make version of game object specific to each player
   // note that socketIds[i] belongs to playerCIds[i]
