@@ -203,7 +203,7 @@ const useMetaGameControllers = (socket: any, io: any) => {
       socket.to(gameCode).emit("game.event.player.leave", playerObj);
 
       // if new host, tell everyone too
-      socket.to(gameCode).emit("game.transition.event", { host: newHost });
+      socket.to(gameCode).emit("game.event.newHost", { host: newHost });
     } catch (e) {
       console.error("game.leave error", e);
       socket.emit("game.leave.error");
