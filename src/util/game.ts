@@ -554,4 +554,5 @@ export {
   endGameEvent,
   sanitizeGameObjectForPlayer,
   playAgainGameEvent,
+  getAndDeserializeGameObject,
 };

@@ -20,6 +20,7 @@ import {
   endGameEvent,
   sanitizeGameObjectForPlayer,
   playAgainGameEvent,
+  getAndDeserializeGameObject,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 import { PHASE_END, ROUND_TIMER } from "./constants/game";
@@ -243,6 +244,32 @@ const useMetaGameControllers = (socket: any, io: any) => {
 
 const useGameControllers = (socket: any, io: any) => {
   const { cId, id: socketId } = socket;
+
+  socket.on("game.event.chat", async (data: any) => {
+    try {
+      const { gameCode, message } = data;
+      const gameObj = await getAndDeserializeGameObject(gameCode);
+
+      if (!gameObj || Object.keys(gameObj).length === 0)
+        throw new Error("No such game exists.");
+
+      // if cId not in game he wanna send to
+      if (
+        !gameObj.players[cId] ||
+        Object.keys(gameObj.players[cId]).length === 0
+      )
+        throw new Error("Not authorized.");
+
+      io.to(gameCode).emit({ cId, message });
+    } catch (e) {
+      console.error("game.event.chat error", e);
+      if (e.message === "No such game exists.") {
+        socket.emit("game.kick", e.message);
+      } else {
+        socket.emit("game.event.chat.error");
+      }
+    }
+  });
 
   socket.on("game.event.questions.update", async (data: any) => {
     try {
