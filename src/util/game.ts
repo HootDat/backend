@@ -332,7 +332,6 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   gameObj = setNextQuestion(gameObj);
   const playerCIds = Object.keys(gameObj.players);
 
-  // DISABLE UPDATE FOR NOW. TODO: UNCOMMENT THE UPDATE
   await serializeAndUpdateGameObject(gameObj);
 
   // get socketId of all players in one redis transaction

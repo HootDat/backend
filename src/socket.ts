@@ -258,7 +258,7 @@ const useGameControllers = (socket: any, io: any) => {
       // send each player their own version of the updated game object
       results.forEach(
         ({ socketId, gameObj }: { socketId: any; gameObj: any }) => {
-          socket.to(socketId).emit("game.event.transition", gameObj);
+          io.to(socketId).emit("game.event.transition", gameObj);
         },
       );
     } catch (e) {
