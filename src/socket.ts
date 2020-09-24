@@ -19,6 +19,7 @@ import {
   nextQuestionGameEvent,
   endGameEvent,
   sanitizeGameObjectForPlayer,
+  playAgainGameEvent,
 } from "./util/game";
 import { K_PRESENCE } from "./constants/redis";
 import { PHASE_END, ROUND_TIMER } from "./constants/game";
@@ -275,6 +276,22 @@ const useGameControllers = (socket: any, io: any) => {
     }
   });
 
+  socket.on("game.event.host.playAgain", async (data: any) => {
+    try {
+      const { gameCode } = data;
+      const gameObj = await playAgainGameEvent(cId, gameCode);
+
+      io.to(gameCode).emit("game.event.transition", gameObj);
+    } catch (e) {
+      console.error("game.event.host.start error", e);
+      if (e.message === "No such game exists.") {
+        socket.emit("game.kick", e.message);
+      } else {
+        socket.emit("game.event.host.start.error");
+      }
+    }
+  });
+
   // TODO: move this somewhere else
   const nextQuestionOrEndGame = async (gameCode: any, gameObj: any) => {
     // decide whether to advance to the answering phase of
@@ -336,12 +353,14 @@ const useGameControllers = (socket: any, io: any) => {
       } else {
         let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
 
+        const numOnline = Object.values(gameObj.players).reduce(
+          (acc: number, curr: any) => acc + (curr.online ? 1 : 0),
+          0,
+        );
+
         // if everyone has answered,
         // let's transition to PHASE_QN_RESULTS of this question
-        if (
-          gameObj.results[gameObj.qnNum].length >=
-          Object.values(gameObj.players).length
-        ) {
+        if (gameObj.results[gameObj.qnNum].length >= numOnline) {
           // transition to PHASE_QN_RESULTS of the question
           gameObj = await roundEndGameEvent(gameCode);
           io.to(gameCode).emit("game.event.transition", gameObj);

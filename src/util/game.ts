@@ -346,6 +346,35 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   }));
 };
 
+const playAgainGameEvent = async (
+  cId: string,
+  gameCode: string,
+): Promise<any> => {
+  let gameObj = await getAndDeserializeGameObject(gameCode);
+
+  // if host is not cId, error
+  if (
+    gameObj.host !== cId &&
+    gameObj.players[cId] &&
+    Object.keys(gameObj.players[cId]).length > 0
+  )
+    throw new Error("Not authorized.");
+
+  // if wrong phase
+  if (gameObj.phase !== PHASE_END) throw new Error("Wrong phase.");
+
+  // reset some fields
+  gameObj.qnNum = -1;
+  gameObj.phase = PHASE_LOBBY;
+  gameObj.results = [];
+  gameObj.currAnswer = "";
+  gameObj.currAnswerer = "";
+
+  await serializeAndUpdateGameObject(gameObj);
+
+  return gameObj;
+};
+
 const getPlayerRole = async (cId: string, gameCode: string) => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
   if (!gameObj || Object.keys(gameObj).length === 0)
@@ -514,4 +543,5 @@ export {
   nextQuestionGameEvent,
   endGameEvent,
   sanitizeGameObjectForPlayer,
+  playAgainGameEvent,
 };
