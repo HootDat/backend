@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import Joi from "joi";
 import { getCustomRepository } from "typeorm";
 import { PackQueryScope, PackRepository } from "../repositories/PackRepository";
+import { transformPack } from "./object_transformers/pack";
 
 const getPacksRequestSchema = Joi.object({
   categories: Joi.array().items(Joi.string()),
@@ -35,7 +36,7 @@ export const getPacks = async (
       scope,
       categories
     );
-    res.json(packs);
+    res.json(packs.map(transformPack));
   } catch (error) {
     next(error);
   }
@@ -79,7 +80,7 @@ export const createPack = async (
       questions,
       isPublic
     );
-    res.status(201).json(savedPack);
+    res.status(201).json(transformPack(savedPack));
   } catch (error) {
     next(error);
   }
@@ -151,11 +152,11 @@ export const editPack = async (
       updateResult instanceof Object &&
       "updatedCopy" in updateResult
     ) {
-      return res.json(updateResult.updatedCopy);
+      return res.json(transformPack(updateResult.updatedCopy));
     } else if (updateResult instanceof Object && "serverCopy" in updateResult) {
       return res.status(400).json({
         error: "server has a newer copy",
-        serverCopy: updateResult.serverCopy,
+        serverCopy: transformPack(updateResult.serverCopy),
       });
     } else {
       return res.status(500).json({ error: "internal server error" });
