@@ -279,6 +279,9 @@ const useGameControllers = (socket: any, io: any) => {
   const nextQuestionOrEndGame = async (gameCode: any, gameObj: any) => {
     // decide whether to advance to the answering phase of
     // next question OR the game end screen
+    console.log("===========================");
+    console.log(gameObj.qnNum, gameObj.numQns);
+    console.log("===========================");
     if (gameObj.qnNum + 1 < gameObj.numQns) {
       // we advance to the next question
       const results = await nextQuestionGameEvent(gameCode);
@@ -291,7 +294,7 @@ const useGameControllers = (socket: any, io: any) => {
       );
     } else {
       // we end the game
-      const gameObj = endGameEvent(gameCode);
+      const gameObj = await endGameEvent(gameCode);
       io.to(gameCode).emit("game.event.transition", gameObj);
     }
   };
@@ -312,17 +315,23 @@ const useGameControllers = (socket: any, io: any) => {
 
         // TODO: any cleaner way to do the below timeouts?
 
-        // let's transition to PHASE_QN_RESULTS of this question in 8s
-        gameObj = await roundEndGameEvent(gameCode);
-        setTimeout(() => {
-          // advance everyone to the results screen of the question
-          io.to(gameCode).emit("game.event.transition", gameObj);
+        setTimeout(async () => {
+          try {
+            // let's transition to PHASE_QN_RESULTS of this question in 8s
+            gameObj = await roundEndGameEvent(gameCode);
 
-          // after 8s, transition to the PHASE_QN_ANSWER of the next question
-          // or the PHASE_END screen, if this was the last question
-          setTimeout(() => {
-            nextQuestionOrEndGame(gameCode, gameObj);
-          }, 8000);
+            // advance everyone to the results screen of the question
+            io.to(gameCode).emit("game.event.transition", gameObj);
+
+            // after 8s, transition to the PHASE_QN_ANSWER of the next question
+            // or the PHASE_END screen, if this was the last question
+            setTimeout(() => {
+              nextQuestionOrEndGame(gameCode, gameObj);
+            }, 8000);
+          } catch (e) {
+            // Transition already handled elsewhere. Can "fail" silently.
+            console.log("setTimeout error:", e);
+          }
         }, 8000);
       } else {
         let gameObj = await playerGuessGameEvent(cId, answer, gameCode);

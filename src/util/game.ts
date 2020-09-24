@@ -104,7 +104,8 @@ const serializeAndUpdateGameObject = async (
     serializeGameObject(gameObj),
   );
 
-  if (resetExpiry) {
+  // don't reset expiry if game has already ended
+  if (resetExpiry && gameObj.phase !== PHASE_END) {
     if (
       Object.values(gameObj.players).reduce(
         (acc, curr: any) => acc || curr.online,
@@ -347,6 +348,8 @@ const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
 
 const getPlayerRole = async (cId: string, gameCode: string) => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
   if (!gameObj.players[cId]) throw new Error("Not authorized.");
   return cId === gameObj.currAnswerer ? "answerer" : "guesser";
 };
@@ -357,6 +360,8 @@ const playerAnswerGameEvent = async (
   gameCode: string,
 ): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
 
   // TODO: put all these checks in a function where the
   // checks are passed via a parameterized object
@@ -382,6 +387,8 @@ const playerGuessGameEvent = async (
   gameCode: string,
 ) => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
 
   // TODO: put all these checks in a function where the
   // checks are passed via a parameterized object
@@ -410,6 +417,8 @@ const playerGuessGameEvent = async (
 
 const roundEndGameEvent = async (gameCode: string): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
 
   // This guard clause also serves as a guard against multiple calls of
   // this function, in particular when roundEndGameEvent is called the
@@ -442,12 +451,15 @@ const roundEndGameEvent = async (gameCode: string): Promise<any> => {
     phase: gameObj.phase,
     results: gameObj.results,
     numQns: gameObj.questions.length,
+    qnNum: gameObj.qnNum,
     players: gameObj.players,
   };
 };
 
 const nextQuestionGameEvent = async (gameCode: string): Promise<any> => {
   let gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
 
   // only allow the game to transition to the PHASE_QN_ANSWER phase of
   // the next question if the current phase is PHASE_QN_RESULTS of curr question
@@ -471,6 +483,8 @@ const nextQuestionGameEvent = async (gameCode: string): Promise<any> => {
 
 const endGameEvent = async (gameCode: string): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
+  if (!gameObj || Object.keys(gameObj).length === 0)
+    throw new Error("No such game exists.");
 
   // only allow the game to transition to PHASE_END if the current phase
   // is the PHASE_QN_RESULTS phase of some question
