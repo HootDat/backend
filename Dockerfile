@@ -16,4 +16,5 @@ RUN npm run build
 # prod
 
 ENV NODE_ENV=production
+EXPOSE 3001
 CMD [ "node", "dist/app.js" ]
