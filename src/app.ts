@@ -4,6 +4,7 @@ import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import http from "http";
 import morgan from "morgan";
+
 import "reflect-metadata";
 import { createConnection } from "typeorm";
 import * as authController from "./controllers/auth";
@@ -77,6 +78,7 @@ createConnection()
     });
   })
   .catch(error => {
+  .catch((error) => {
     console.error(error);
     // Errors thrown by handlers are automatically caught by Express
     // If we reach here, we must have encountered an error during initialisation
