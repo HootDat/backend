@@ -1,10 +1,10 @@
 import dotenv from "dotenv";
 
 // Load the values from the environment
-const { error } = dotenv.config();
+const { error } = dotenv.config({ silent: true });
 if (error) {
   console.error(`Failed to load environment variables: ${error}`);
-  process.exit(1);
+  /* process.exit(1); */
 } else {
   console.debug("Loaded environment variables from .env");
 }
