@@ -131,7 +131,9 @@ const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
     yourRole: gameObj.currAnswerer === cId ? ROLE_ANSWERER : ROLE_GUESSER,
   };
 
-  delete sanitizedGameObj.currAnswerer;
+  if (gameObj.phase in [PHASE_QN_ANSWER, PHASE_QN_GUESS]) {
+    delete sanitizedGameObj.currAnswerer;
+  }
 
   return sanitizedGameObj;
 };
