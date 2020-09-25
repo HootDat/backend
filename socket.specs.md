@@ -1,6 +1,6 @@
 # Game socket.io specifications v0.0.5
 
-Below you will find a list of event endpoints, the schema of the payload they expect, and some descriptions.
+Below you will find a list of event endpoints, the schema of the payload they expect, and some descriptions. For connection to server socket.io endpoint, client has to specify a query parameter called `cId` which is their client id.
 
 # Table of Content
 
