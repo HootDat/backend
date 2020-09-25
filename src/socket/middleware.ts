@@ -20,7 +20,7 @@ import {
   registerUserOffline,
 } from "../util/game";
 import { K_PRESENCE } from "../constants/redis";
-import { PHASE_END, ROUND_TIMER } from "../constants/game";
+import { PHASE_END } from "../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
