@@ -13,11 +13,11 @@ const fbAccessTokenResponseSchema = Joi.object({
 
 const checkAccessToken = async (accessToken: string): Promise<boolean> => {
   const accessTokenResponse = await Axios.get(
-    `https://graph.facebook.com/app/?access_token=${accessToken}`
+    `https://graph.facebook.com/app/?access_token=${accessToken}`,
   );
   const responseBody = Joi.attempt(
     accessTokenResponse.data,
-    fbAccessTokenResponseSchema
+    fbAccessTokenResponseSchema,
   );
   return responseBody.id === config.oAuth.facebook.appID;
 };
@@ -34,10 +34,10 @@ interface FacebookProfile {
 }
 
 const fetchFacebookProfile = async (
-  accessToken: string
+  accessToken: string,
 ): Promise<FacebookProfile> => {
   const profileResponse = await Axios.get(
-    `https://graph.facebook.com/me/?access_token=${accessToken}`
+    `https://graph.facebook.com/me/?access_token=${accessToken}`,
   );
   const body = Joi.attempt(profileResponse.data, fbProfileResponseSchema);
   const name: string = body.name;
@@ -53,7 +53,7 @@ const fbAuthRequestSchema = Joi.object({
 export const loginWithFacebook = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     // Verify the facebook access token
@@ -75,7 +75,7 @@ export const loginWithFacebook = async (
       const userRepository = getCustomRepository(UserRepository);
       const user = await userRepository.getOrCreateFromFacebookID(
         profile.name,
-        profile.id
+        profile.id,
       );
 
       if (!user) {
@@ -83,7 +83,7 @@ export const loginWithFacebook = async (
       }
       // Generate and send our own JWT
       const token = jwt.sign({ userID: user.id }, config.jwtSecret, {
-        expiresIn: "2 days",
+        expiresIn: "14 days",
       });
       // Send the jwt in the header and user in the body
       return res.set("Authorization", `Bearer ${token}`).json(user);

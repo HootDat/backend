@@ -1,7 +1,7 @@
 import redis from "redis";
 import { promisify } from "util";
 
-const client = redis.createClient();
+const client = redis.createClient({ host: "redis" });
 
 client.on("error", (error) => {
   console.error("redis error", error);
