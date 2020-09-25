@@ -174,12 +174,12 @@ const playerGuessGameEvent = async (
   answer: string,
   gameCode: string,
 ) => {
+  // ###################################################
+  // ########## critical section start #################
+  // ###################################################
   const gameObj = await getAndDeserializeGameObject(gameCode);
   if (!gameObj || Object.keys(gameObj).length === 0)
     throw new Error("No such game exists.");
-
-  // TODO: put all these checks in a function where the
-  // checks are passed via a parameterized object
 
   // TODO: beware of race conditions (multiple guessers update)
   // either have everything as single redis transaction/use semaphore
@@ -199,6 +199,11 @@ const playerGuessGameEvent = async (
   gameObj.results[gameObj.qnNum][cId].score = score;
 
   await serializeAndUpdateGameObject(gameObj);
+  // ###################################################
+  // ########## critical section end ###################
+  // ###################################################
+
+  console.log(gameObj);
 
   return gameObj;
 };

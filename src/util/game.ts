@@ -231,11 +231,19 @@ const registerUserOffline = async (cId: string): Promise<any> => {
   const { gameCode } = await redis.hgetall(`${K_PRESENCE}-${cId}`);
   if (!gameCode) return {}; // not in game, we are done
 
+  // ###################################################
+  // ########## critical section start #################
+  // ###################################################
+
   const gameObj = await getAndDeserializeGameObject(gameCode);
 
   // set player online status to false and update game in redis
   gameObj.players[cId].online = false;
   await serializeAndUpdateGameObject(gameObj);
+
+  // ###################################################
+  // ########## critical section end ###################
+  // ###################################################
 
   // TODO: consider checking if game's started yet or not before sanitizing
   return sanitizeGameObjectForPlayer(cId, gameObj);

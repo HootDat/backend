@@ -33,7 +33,7 @@ import {
   registerUserOnline,
 } from "../../util/game";
 import { K_PRESENCE } from "../../constants/redis";
-import { PHASE_END, ROUND_TIMER } from "../../constants/game";
+import { PHASE_END, ROUND_TIMER_1, ROUND_TIMER_2 } from "../../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
@@ -124,9 +124,6 @@ const useGameEventEndpoints = (socket: any, io: any) => {
   const nextQuestionOrEndGame = async (gameCode: any, gameObj: any) => {
     // decide whether to advance to the answering phase of
     // next question OR the game end screen
-    console.log("===========================");
-    console.log(gameObj.qnNum, gameObj.numQns);
-    console.log("===========================");
     if (gameObj.qnNum + 1 < gameObj.numQns) {
       // we advance to the next question
       const results = await nextQuestionGameEvent(gameCode);
@@ -172,12 +169,12 @@ const useGameEventEndpoints = (socket: any, io: any) => {
             // or the PHASE_END screen, if this was the last question
             setTimeout(() => {
               nextQuestionOrEndGame(gameCode, gameObj);
-            }, ROUND_TIMER);
+            }, ROUND_TIMER_2);
           } catch (e) {
             // Transition already handled elsewhere. Can "fail" silently.
-            console.log("setTimeout error:", e);
+            console.log("IGNORE THIS. IGNORE THIS. setTimeout error:", e);
           }
-        }, ROUND_TIMER);
+        }, ROUND_TIMER_1);
       } else {
         let gameObj = await playerGuessGameEvent(cId, answer, gameCode);
 
@@ -198,7 +195,7 @@ const useGameEventEndpoints = (socket: any, io: any) => {
           // or the PHASE_END screen, if this was the last question
           setTimeout(() => {
             nextQuestionOrEndGame(gameCode, gameObj);
-          }, ROUND_TIMER);
+          }, ROUND_TIMER_2);
         }
       }
     } catch (e) {
