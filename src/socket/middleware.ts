@@ -67,13 +67,11 @@ const withAuthentication = (io: any) =>
           players: { [cId]: playerObj },
         } = gameObj;
 
-        if (phase !== PHASE_END) {
-          // tell everyone in the game that this user came online
-          io.to(gameCode).emit("game.event.player.update", playerObj);
+        // tell everyone in the game that this user came online
+        io.to(gameCode).emit("game.event.player.update", playerObj);
 
-          // subscribe the socket to the game room
-          socket.join(gameCode);
-        }
+        // subscribe the socket to the game room
+        socket.join(gameCode);
 
         // TODO: need to check if this even gets received by client since it's
         // before the "connection" event.

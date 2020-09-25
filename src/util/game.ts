@@ -88,13 +88,6 @@ const mapPlayerToGame = async (cId: string, gameCode: string) => {
   await redis.hmset(`${K_PRESENCE}-${cId}`, { ...userData, gameCode });
 };
 
-const deleteGameObject = async (gameObj: any) => {
-  Object.keys(gameObj.players).forEach((_cId) => {
-    mapPlayerToGame(_cId, "");
-  });
-  await redis.del(`${K_GAME}-${gameObj.gameCode}`);
-};
-
 const serializeAndUpdateGameObject = async (
   gameObj: any,
   resetExpiry = true,
@@ -136,72 +129,6 @@ const sanitizeGameObjectForPlayer = (cId: string, gameObj: any): any => {
   }
 
   return sanitizedGameObj;
-};
-
-const createGame = async (
-  cId: string,
-  name: string,
-  iconNum: number,
-): Promise<any> => {
-  let gameCode = generateGameCode();
-
-  // loop till unique game gameCode generated
-  while (await isInUse(gameCode)) {
-    gameCode = generateGameCode();
-  }
-
-  const gameObj = createBaseGameObject(gameCode, cId, name, iconNum);
-
-  await serializeAndUpdateGameObject(gameObj);
-  await mapPlayerToGame(cId, gameCode);
-
-  // TODO: consider not sanitizing because game's not started yet
-  return sanitizeGameObjectForPlayer(cId, gameObj);
-};
-
-const joinGame = async (
-  cId: string,
-  name: "john doe",
-  iconNum: 0,
-  gameCode: string,
-): Promise<any> => {
-  const gameObj = await getAndDeserializeGameObject(gameCode);
-  if (!gameObj || Object.keys(gameObj).length === 0)
-    throw new Error("No such game exists.");
-
-  // add player to game and update game in redis
-  gameObj.players[cId] = createBasePlayerObject(cId, name, iconNum);
-  await serializeAndUpdateGameObject(gameObj);
-
-  // create player->gameCode mapping
-  await mapPlayerToGame(cId, gameCode);
-
-  return sanitizeGameObjectForPlayer(cId, gameObj);
-};
-
-const leaveGame = async (cId: string, gameCode: string): Promise<any> => {
-  // remove player->gameCode mapping
-  await mapPlayerToGame(cId, "");
-
-  // fail silently if game does not exist
-  const gameObj = await getAndDeserializeGameObject(gameCode);
-  if (!gameObj || Object.keys(gameObj).length === 0) return;
-
-  // remove player from game and update game in redis
-  const playerObj = gameObj.players[cId];
-  delete gameObj.players[cId];
-
-  const newPlayers = Object.values(gameObj.players);
-  let newHost: any;
-  if (gameObj.host === cId) {
-    // reassign host
-    newHost = newPlayers[randomIntFromInterval(0, newPlayers.length - 1)];
-    newHost = newHost.cId;
-    gameObj.host = newHost;
-  }
-
-  await serializeAndUpdateGameObject(gameObj);
-  return { playerObj, newHost };
 };
 
 const registerUserOnline = async (
