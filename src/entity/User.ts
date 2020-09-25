@@ -8,6 +8,8 @@ import {
 } from "typeorm";
 import { Pack } from "./Pack";
 
+export type UserAuthMethod = "facebook";
+
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
@@ -16,9 +18,10 @@ export class User {
   @Column()
   name?: string;
 
-  // TODO: auth
+  @Column({ select: false })
+  authMethod?: UserAuthMethod;
 
-  @OneToMany(() => Pack, (pack) => pack.creator)
+  @OneToMany(() => Pack, (pack) => pack.owner)
   packs?: Pack[];
 
   @Column()
