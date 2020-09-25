@@ -1,86 +1,206 @@
-# game socketio specs v0.0.3
+# Game socket.io specifications v0.0.5
 
-## Game obj defn
+Below you will find a list of event endpoints, the schema of the payload they expect, and some descriptions.
 
-```
-gameObj: {
-    gameCode,      <- game gameCode
-    host,          <- host cId, which is you
-    phase,         <- current phase
-    qnNum,         <- current question number
-    questions[],   <- question list
-    players: {     <- a mapping of (cId, their current game state)
-        cId: {
-            answers[],
-            score,
-            status <- online/offline
-        }
-    }
-}
-```
+# Table of Content
 
-## Multi login event: `auth.loggedInElsewhere`
+- [Meta-game](#meta-game)
+  - [game.create](#gamecreate)
+  - [game.join](#gamejoin)
+  - [game.leave](#gameleave)
+- [Within the game](#within-the-game)
+  - [game.event.chat](#gameeventchat)
+  - [game.event.questions.update](#gameeventquestionsupdate)
+  - [game.event.host.start](#gameeventhoststart)
+  - [game.event.host.playAgain](#gameeventhostplayagain)
+  - [game.event.player.answer](#gameeventplayeranswer)
 
-### client:
+# Meta-game
 
-#### on("auth.loggedInElsewhere"):
+## game.create
 
-- this means that you just opened a new tab for the game (doesn't matter if you're in game or not, the socket connection is established as soon as you visit the website)
-- assume tab 1 is the older tab and tab 2 is the newer tab
-- latest tab (tab 2) has priority and keeps the socket connection (proceeding as per normal, as if there were no multilog) whereas tab 1 receives this event and should handle it with a popup/msg that says you've got another tab open. Copy telegram/whatsapp format for opening multiple tabs.
+### Payload:
 
-## Create game: `game.create`
+The payload is a js object with the following keys:
 
-### client:
+- **name:** name that the player has chosen.
+- **iconNum:** number of the icon the player has chosen.
 
-#### emit("game.create"):
+### Description:
 
-- on click "create game"
-- show spinner after clicking
+When server receives message from this endpoint from a socket client, it creates a game room with a randomly generated gameCode and assign the sending socket's cId (client id) to be the host. It retrieves the cId from the socket object.
 
-#### on("game.join", (gameObj) => {...}):
+### Server response:
 
-- proceed to GameController screen, whose current screen is set to `phase` (which should = "lobby" for now)
-- when in the lobby screen of GameController, check if your `cId == gameObj.host` for conditional rendering of host-only components e.g. ability to add question packs. If `cId != gameObj.host` (the case for players who are !host), then show them non-host stuff.
+#### Success:
 
-## Join game: `game.join`
+Server emits to the client "game.join" with the gameObject as payload, which tells the client to join the game it just created.
 
-### client:
+#### Error:
 
-#### emit("game.join", { gameCode: ... }):
+Server emits to the client "game.join.error".
 
-- on click "join game" or on visit URL with "gameCode=..." query param
-- show spinner after clicking/visiting
+## game.join
 
-#### on("game.join", (gameObj) => {...}):
+### Payload:
 
-- proceed to GameController screen, whose current screen is set to `phase`.
+The payload is a js object with the following keys:
 
-## Leave game: `game.leave`
+- **gameCode:** code of the game the player wishes to join.
+- **name:** name that the player has chosen.
+- **iconNum:** number of the icon the player has chosen.
 
-### client:
+### Description:
 
-#### on("game.leave"):
+When server receives message from this endpoint from a socket client, it will attempt to add the client to the game based on gameCode client specified.
 
-- triggered when the client EXPLICITLY clicks leave game (not when he refreshes the page)
-- take him back to the home screen
+### Server response:
 
-## Game join event: `game.event.join`
+#### Success:
 
-**Note:** Events prefixed with `game.event` will be the events within the actual game itself, unlike `game.join`, `game.create`, and `game.leave` which are dealing with the entry/exit of the current user to the game. So `game.join` means you're entering the game whereas `game.event.join` means you're in the game and someone else is joining the game.
+Server emits "game.join" to the client with gameObject as payload. Server emits to everyone in the game room (except client) "game.event.player.join" with the client's playerObject.
 
-### client:
+#### Error:
 
-#### on("game.event.join", (player) => { ... })
+Server emits "game.join.error" with payload "No such game exists." to the client if no game specified by the gameCode exists. If some other error, then just "game.join.error" with no payload.
 
-- server emits this when a new player has joiend the game (clicked the join game/visit URL with gameCode)
-- update list of players in the game i.e. `players[player.cId] = player`. Don't care if cId is duplicated in the player object for now (forever).
+## game.leave
 
-## Game leave event: `game.event.leave`
+### Payload:
 
-### client:
+The payload is a js object with the following keys:
 
-#### on("game.event.leave", (player) => { ... })
+- **gameCode:** code of the game the player wishes to leave.
 
-- server emits this when a player has left the game (clicked the exit game)
-- update list of players in the game i.e. `setPlayers((prev) => { ...prev, [player.cId]: null })`; everyone retains their player object except the player who just left
+### Description:
+
+When server receives message from this endpoint from a socket client, it will remove this socket from the game specified by gameCode.
+
+### Server response:
+
+#### Success:
+
+Server emits "game.leave" to the client, signalling that it has succesfully left a game. Server will emit "game.event.player.leave" with payload playerObject (of the client who just left) to all socket clients in the game room.
+
+#### Error:
+
+Server emits "game.leave.error" to the client with no payload.
+
+# Within the game
+
+## game.event.chat
+
+### Payload:
+
+The payload is a js object with the following keys:
+
+- **gameCode:** code of the game the player wishes to chat in.
+- **message:** the player's chat message.
+
+### Description:
+
+When server receives message from this endpoint from a socket client, it will broadcast the message sent by the client to all clients in the game room specified by gameCode.
+
+### Server response:
+
+#### Success:
+
+Server emits "game.event.chat" to everyone in the game room specified by gameCode.
+
+#### Error:
+
+Server emits "game.kick" to the client if no game specified by gameCode exists as it could be that the game room has expired. Otherwise, it emits "game.event.chat.error" to the client.
+
+## game.event.questions.update
+
+### Payload:
+
+The payload is a js object with the following keys:
+
+- **gameCode:** code of the game the player wishes update the questions of.
+- **questions:** array of questions to update with.
+
+### Description:
+
+When server receives message from this endpoint from a socket client, it will attempt to update the list of questions in this game specified by gameCode.
+
+### Server response:
+
+#### Success:
+
+Server emits "game.event.questions.update" with list of questions as payload to everyone in the game room specified by gameCode.
+
+#### Error:
+
+Server emits "game.kick" to the client if no game specified by gameCode exists as it could be that the game room has expired. Otherwise, it emits "game.event.questions.update.error" to the client.
+
+## game.event.host.start
+
+### Payload:
+
+The payload is a js object with the following keys:
+
+- **gameCode:** code of the game the player (host) wishes to start.
+
+### Description:
+
+When server receives message from this endpoint from a socket client, it will attempt to start the game specified by gameCode.
+
+### Server response:
+
+#### Success:
+
+Server emits "game.event.transition" with the gameObject to all clients in the game room. Each client gets their own version which tells them if they are the answerer/guesser for that round. Information about other clients' role is hidden.
+
+#### Error:
+
+Server emits "game.kick" to the client if no game specified by gameCode exists as it could be that the game room has expired. Otherwise, it emits "game.event.host.start.error" to the client.
+
+## game.event.host.playAgain
+
+### Payload:
+
+The payload is a js object with the following keys:
+
+- **gameCode:** code of the game (that has ended) the player (host) wishes to restart from lobby phase.
+
+### Description:
+
+When server receives message from this endpoint from a socket client, it will attempt to restart the (ended) game specified by gameCode.
+
+### Server response:
+
+#### Success:
+
+Server emits "game.event.transition" with the gameObject to all clients in the game room.
+
+#### Error:
+
+Server emits "game.kick" to the client if no game specified by gameCode exists as it could be that the game room has expired. Otherwise, it emits "game.event.host.start.error" to the client.
+
+## game.event.player.answer
+
+### Payload:
+
+The payload is a js object with the following keys:
+
+- **gameCode:** code of the game the player (answerer/guesser) wishes to submit their answer to.
+- **answer:** the player's answer.
+
+### Description:
+
+When server receives message from this endpoint from a socket client, it will attempt to register the client's answer for the given round and phase of the game.
+
+### Server response:
+
+#### Success (if PHASE_QN_ANSWER):
+
+Once answerer has answered, server emits "game.event.transition" with a partial gameObject as payload to all clients.
+
+#### Success (if PHASE_QN_GUESS):
+
+If all clients have answered or if ROUND_TIMER_1 ms passes, whichever sooner, server emits "game.event.transition" with a partial gameObject to all clients in the game room.
+
+#### Error:
+
+Server emits "game.kick" to the client if no game specified by gameCode exists as it could be that the game room has expired. Otherwise, it emits "game.event.player.answer.error" to the client.
