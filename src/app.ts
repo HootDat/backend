@@ -17,7 +17,7 @@ import { extractJwt, requireJwt } from "./middleware/auth";
 import setupSocket from "./socket";
 
 createConnection()
-  .catch(error => {
+  .catch((error) => {
     logger.error(`Failed to connect to database: ${error}`);
     process.exit(1);
   })
@@ -63,7 +63,7 @@ createConnection()
       (error: Error, _req: Request, res: Response, _next: NextFunction) => {
         logger.warn("unhandled error", error);
         return res.status(500).json({ error: "internal server error" });
-      }
+      },
     );
 
     /**
@@ -73,11 +73,10 @@ createConnection()
     setupSocket(server);
     server.listen(config.port, () => {
       logger.info(
-        `App is running at http://localhost:${config.port} in ${config.environment} mode`
+        `App is running at http://localhost:${config.port} in ${config.environment} mode`,
       );
     });
   })
-  .catch(error => {
   .catch((error) => {
     console.error(error);
     // Errors thrown by handlers are automatically caught by Express
