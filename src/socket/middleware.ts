@@ -55,10 +55,6 @@ const withAuthentication = (io: any) =>
 
       const gameObj = await registerUserOnline(cId, socketId);
 
-      // TODO: if user provided gameCode in handshake query which is not
-      // the same as the game he's in, boot him from the game and let him
-      // join the new game.
-
       // if player was in game which is still ongoing (and he's part of)
       if (Object.keys(gameObj).length > 0) {
         const {
@@ -72,9 +68,6 @@ const withAuthentication = (io: any) =>
 
         // subscribe the socket to the game room
         socket.join(gameCode);
-
-        // TODO: need to check if this even gets received by client since it's
-        // before the "connection" event.
 
         // tell client it's joined a game, and sub socket to game room
         socket.emit("game.join", sanitizeGameObjectForPlayer(cId, gameObj));

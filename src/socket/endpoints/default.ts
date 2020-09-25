@@ -30,8 +30,6 @@ const redis = temp as any; // TOOD: proper typescript for redis async wrapper cl
 const useDefaultEndpoints = (socket: any, io: any) => {
   const { cId, id: socketId } = socket;
 
-  // TODO: handle reconnect event for intermittent connections
-
   socket.on("disconnect", async () => {
     try {
       console.log(`Socket (${cId}, ${socketId}) disconnected.`);

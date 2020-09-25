@@ -53,16 +53,10 @@ const updateQuestionsGameEvent = async (
 
   gameObj.questions = questions;
   await serializeAndUpdateGameObject(gameObj);
-
-  /*   // TODO: consider checking if game's started yet or not before sanitizing */
-  /*   return sanitizeGameObjectForPlayer(cId, gameObj); */
 };
 
 const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   let gameObj = await getAndDeserializeGameObject(gameCode);
-
-  // TODO: put all these checks in a function where the
-  // checks are passed via a parameterized object
 
   // ######################################################
   // ##################### CHECKS #########################
@@ -203,6 +197,7 @@ const playerGuessGameEvent = async (
   // ########## critical section end ###################
   // ###################################################
 
+  console.log("==================================");
   console.log(gameObj);
 
   return gameObj;

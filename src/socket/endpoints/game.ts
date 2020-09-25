@@ -34,8 +34,6 @@ const useGameEndpoints = (socket: any, io: any) => {
   socket.on("game.create", async (data: any) => {
     try {
       if (socket?.game?.gameCode) {
-        // TODO: improve this perhaps?
-
         // if for some reason the client tries to create a game
         // while it's already in a game, unsub socket from game room
         // and remove the client from the game itself
@@ -71,8 +69,6 @@ const useGameEndpoints = (socket: any, io: any) => {
   socket.on("game.join", async (data: any) => {
     try {
       if (socket?.game?.gameCode) {
-        // TODO: improve this perhaps?
-
         // if for some reason the client tries to join a game
         // while it's already in a game, unsub socket from game room
         // and remove the client from the game itself
