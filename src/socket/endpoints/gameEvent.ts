@@ -191,7 +191,7 @@ const useGameEventEndpoints = (socket: any, io: any) => {
           gameObj = await roundEndGameEvent(gameCode);
           io.to(gameCode).emit("game.event.transition", gameObj);
 
-          // after 8s, transition to the PHASE_QN_ANSWER of the next question
+          // after ROUND_TIMER_2 ms, transition to the PHASE_QN_ANSWER of the next question
           // or the PHASE_END screen, if this was the last question
           setTimeout(() => {
             nextQuestionOrEndGame(gameCode, gameObj);
