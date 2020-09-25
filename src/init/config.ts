@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 
 // Load the values from the environment
-const { error } = dotenv.config({ silent: true });
+const { error } = dotenv.config();
 if (error) {
   console.error(`Failed to load environment variables: ${error}`);
   /* process.exit(1); */
