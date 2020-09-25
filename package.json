@@ -23,6 +23,7 @@
         "watch-test": "npm run test -- --watchAll"
     },
     "dependencies": {
+        "typescript": "^3.9.7",
         "@types/jsonwebtoken": "^8.5.0",
         "async": "^3.2.0",
         "axios": "^0.20.0",
@@ -100,7 +101,6 @@
         "jest": "^24.9.0",
         "nodemon": "^1.19.4",
         "supertest": "^4.0.2",
-        "ts-jest": "^24.3.0",
-        "typescript": "^3.9.7"
+        "ts-jest": "^24.3.0"
     }
 }
