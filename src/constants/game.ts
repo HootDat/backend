@@ -11,7 +11,7 @@ const ROLE_ANSWERER = "answerer";
 const ROLE_GUESSER = "guesser";
 
 const ROUND_TIMER_1 = 30000;
-const ROUND_TIMER_2 = 15000;
+const ROUND_TIMER_2 = 10000;
 
 export {
   PHASE_LOBBY,
