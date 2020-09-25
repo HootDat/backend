@@ -53,16 +53,10 @@ const updateQuestionsGameEvent = async (
 
   gameObj.questions = questions;
   await serializeAndUpdateGameObject(gameObj);
-
-  /*   // TODO: consider checking if game's started yet or not before sanitizing */
-  /*   return sanitizeGameObjectForPlayer(cId, gameObj); */
 };
 
 const startGameEvent = async (cId: string, gameCode: string): Promise<any> => {
   let gameObj = await getAndDeserializeGameObject(gameCode);
-
-  // TODO: put all these checks in a function where the
-  // checks are passed via a parameterized object
 
   // ######################################################
   // ##################### CHECKS #########################
@@ -174,12 +168,12 @@ const playerGuessGameEvent = async (
   answer: string,
   gameCode: string,
 ) => {
+  // ###################################################
+  // ########## critical section start #################
+  // ###################################################
   const gameObj = await getAndDeserializeGameObject(gameCode);
   if (!gameObj || Object.keys(gameObj).length === 0)
     throw new Error("No such game exists.");
-
-  // TODO: put all these checks in a function where the
-  // checks are passed via a parameterized object
 
   // TODO: beware of race conditions (multiple guessers update)
   // either have everything as single redis transaction/use semaphore
@@ -199,6 +193,12 @@ const playerGuessGameEvent = async (
   gameObj.results[gameObj.qnNum][cId].score = score;
 
   await serializeAndUpdateGameObject(gameObj);
+  // ###################################################
+  // ########## critical section end ###################
+  // ###################################################
+
+  console.log("==================================");
+  console.log(gameObj);
 
   return gameObj;
 };
@@ -290,7 +290,6 @@ const endGameEvent = async (gameCode: string): Promise<any> => {
 export {
   updateQuestionsGameEvent,
   startGameEvent,
-  getPlayerRole,
   playerAnswerGameEvent,
   playerGuessGameEvent,
   roundEndGameEvent,

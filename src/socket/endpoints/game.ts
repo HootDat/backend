@@ -4,26 +4,27 @@
 import socketio from "socket.io";
 // @ts-ignore
 import temp from "../../util/redis";
+import { createGame, joinGame, leaveGame } from "../handlers/game";
 import {
-  createGame,
-  joinGame,
-  leaveGame,
+  setNextQuestion,
+  getPlayerRole,
+  getSocketIdsFromPlayerCIds,
+  padCode,
+  generateGameCode,
+  isInUse,
+  createBasePlayerObject,
+  createBaseGameObject,
+  serializeGameObject,
+  deserializeGameObject,
+  getAndDeserializeGameObject,
+  mapPlayerToGame,
+  serializeAndUpdateGameObject,
+  sanitizeGameObjectForPlayer,
   registerUserOffline,
   registerUserOnline,
-  updateQuestionsGameEvent,
-  startGameEvent,
-  getPlayerRole,
-  playerAnswerGameEvent,
-  playerGuessGameEvent,
-  roundEndGameEvent,
-  nextQuestionGameEvent,
-  endGameEvent,
-  sanitizeGameObjectForPlayer,
-  playAgainGameEvent,
-  getAndDeserializeGameObject,
 } from "../../util/game";
 import { K_PRESENCE } from "../../constants/redis";
-import { PHASE_END, ROUND_TIMER } from "../../constants/game";
+import { PHASE_END } from "../../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
@@ -33,8 +34,6 @@ const useGameEndpoints = (socket: any, io: any) => {
   socket.on("game.create", async (data: any) => {
     try {
       if (socket?.game?.gameCode) {
-        // TODO: improve this perhaps?
-
         // if for some reason the client tries to create a game
         // while it's already in a game, unsub socket from game room
         // and remove the client from the game itself
@@ -70,8 +69,6 @@ const useGameEndpoints = (socket: any, io: any) => {
   socket.on("game.join", async (data: any) => {
     try {
       if (socket?.game?.gameCode) {
-        // TODO: improve this perhaps?
-
         // if for some reason the client tries to join a game
         // while it's already in a game, unsub socket from game room
         // and remove the client from the game itself

@@ -5,25 +5,22 @@ import socketio from "socket.io";
 // @ts-ignore
 import temp from "../util/redis";
 import {
-  createGame,
-  joinGame,
-  leaveGame,
-  registerUserOffline,
-  registerUserOnline,
-  updateQuestionsGameEvent,
-  startGameEvent,
+  setNextQuestion,
   getPlayerRole,
-  playerAnswerGameEvent,
-  playerGuessGameEvent,
-  roundEndGameEvent,
-  nextQuestionGameEvent,
-  endGameEvent,
-  sanitizeGameObjectForPlayer,
-  playAgainGameEvent,
+  generateGameCode,
+  isInUse,
+  createBasePlayerObject,
+  createBaseGameObject,
   getAndDeserializeGameObject,
+  mapPlayerToGame,
+  serializeAndUpdateGameObject,
+  sanitizeGameObjectForPlayer,
+  getSocketIdsFromPlayerCIds,
+  registerUserOnline,
+  registerUserOffline,
 } from "../util/game";
 import { K_PRESENCE } from "../constants/redis";
-import { PHASE_END, ROUND_TIMER } from "../constants/game";
+import { PHASE_END } from "../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
@@ -58,10 +55,6 @@ const withAuthentication = (io: any) =>
 
       const gameObj = await registerUserOnline(cId, socketId);
 
-      // TODO: if user provided gameCode in handshake query which is not
-      // the same as the game he's in, boot him from the game and let him
-      // join the new game.
-
       // if player was in game which is still ongoing (and he's part of)
       if (Object.keys(gameObj).length > 0) {
         const {
@@ -70,16 +63,11 @@ const withAuthentication = (io: any) =>
           players: { [cId]: playerObj },
         } = gameObj;
 
-        if (phase !== PHASE_END) {
-          // tell everyone in the game that this user came online
-          io.to(gameCode).emit("game.event.player.update", playerObj);
+        // tell everyone in the game that this user came online
+        io.to(gameCode).emit("game.event.player.update", playerObj);
 
-          // subscribe the socket to the game room
-          socket.join(gameCode);
-        }
-
-        // TODO: need to check if this even gets received by client since it's
-        // before the "connection" event.
+        // subscribe the socket to the game room
+        socket.join(gameCode);
 
         // tell client it's joined a game, and sub socket to game room
         socket.emit("game.join", sanitizeGameObjectForPlayer(cId, gameObj));

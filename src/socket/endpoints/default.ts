@@ -5,32 +5,30 @@ import socketio from "socket.io";
 // @ts-ignore
 import temp from "../../util/redis";
 import {
-  createGame,
-  joinGame,
-  leaveGame,
+  setNextQuestion,
+  getPlayerRole,
+  getSocketIdsFromPlayerCIds,
+  padCode,
+  generateGameCode,
+  isInUse,
+  createBasePlayerObject,
+  createBaseGameObject,
+  serializeGameObject,
+  deserializeGameObject,
+  getAndDeserializeGameObject,
+  mapPlayerToGame,
+  serializeAndUpdateGameObject,
+  sanitizeGameObjectForPlayer,
   registerUserOffline,
   registerUserOnline,
-  updateQuestionsGameEvent,
-  startGameEvent,
-  getPlayerRole,
-  playerAnswerGameEvent,
-  playerGuessGameEvent,
-  roundEndGameEvent,
-  nextQuestionGameEvent,
-  endGameEvent,
-  sanitizeGameObjectForPlayer,
-  playAgainGameEvent,
-  getAndDeserializeGameObject,
 } from "../../util/game";
 import { K_PRESENCE } from "../../constants/redis";
-import { PHASE_END, ROUND_TIMER } from "../../constants/game";
+import { PHASE_END } from "../../constants/game";
 
 const redis = temp as any; // TOOD: proper typescript for redis async wrapper class (util/redis.js)
 
 const useDefaultEndpoints = (socket: any, io: any) => {
   const { cId, id: socketId } = socket;
-
-  // TODO: handle reconnect event for intermittent connections
 
   socket.on("disconnect", async () => {
     try {

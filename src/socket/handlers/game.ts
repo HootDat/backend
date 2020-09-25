@@ -48,8 +48,7 @@ const createGame = async (
   await serializeAndUpdateGameObject(gameObj);
   await mapPlayerToGame(cId, gameCode);
 
-  // TODO: consider not sanitizing because game's not started yet
-  return sanitizeGameObjectForPlayer(cId, gameObj);
+  return gameObj;
 };
 
 const joinGame = async (
