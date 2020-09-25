@@ -290,7 +290,6 @@ const endGameEvent = async (gameCode: string): Promise<any> => {
 export {
   updateQuestionsGameEvent,
   startGameEvent,
-  getPlayerRole,
   playerAnswerGameEvent,
   playerGuessGameEvent,
   roundEndGameEvent,

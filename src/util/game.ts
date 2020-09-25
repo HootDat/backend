@@ -297,9 +297,6 @@ export {
   mapPlayerToGame,
   serializeAndUpdateGameObject,
   sanitizeGameObjectForPlayer,
-  createGame,
-  joinGame,
-  leaveGame,
   registerUserOffline,
   registerUserOnline,
 };

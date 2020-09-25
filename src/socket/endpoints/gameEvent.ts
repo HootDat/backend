@@ -5,22 +5,32 @@ import socketio from "socket.io";
 // @ts-ignore
 import temp from "../../util/redis";
 import {
-  createGame,
-  joinGame,
-  leaveGame,
-  registerUserOffline,
-  registerUserOnline,
   updateQuestionsGameEvent,
   startGameEvent,
-  getPlayerRole,
   playerAnswerGameEvent,
   playerGuessGameEvent,
   roundEndGameEvent,
   nextQuestionGameEvent,
   endGameEvent,
-  sanitizeGameObjectForPlayer,
   playAgainGameEvent,
+} from "../handlers/gameEvent";
+import {
+  setNextQuestion,
+  getPlayerRole,
+  getSocketIdsFromPlayerCIds,
+  padCode,
+  generateGameCode,
+  isInUse,
+  createBasePlayerObject,
+  createBaseGameObject,
+  serializeGameObject,
+  deserializeGameObject,
   getAndDeserializeGameObject,
+  mapPlayerToGame,
+  serializeAndUpdateGameObject,
+  sanitizeGameObjectForPlayer,
+  registerUserOffline,
+  registerUserOnline,
 } from "../../util/game";
 import { K_PRESENCE } from "../../constants/redis";
 import { PHASE_END, ROUND_TIMER } from "../../constants/game";
@@ -45,7 +55,7 @@ const useGameEventEndpoints = (socket: any, io: any) => {
       )
         throw new Error("Not authorized.");
 
-      io.to(gameCode).emit({ cId, message });
+      io.to(gameCode).emit("game.event.chat", { cId, message });
     } catch (e) {
       console.error("game.event.chat error", e);
       if (e.message === "No such game exists.") {
