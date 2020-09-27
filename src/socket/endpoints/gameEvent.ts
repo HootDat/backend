@@ -160,7 +160,7 @@ const useGameEventEndpoints = (socket: any, io: any) => {
         setTimeout(async () => {
           try {
             // let's transition to PHASE_QN_RESULTS of this question in ROUND_TIMER_1 ms
-            gameObj = await roundEndGameEvent(gameCode);
+            gameObj = await roundEndGameEvent(gameCode, gameObj.qnNum);
 
             // advance everyone to the results screen of the question
             io.to(gameCode).emit("game.event.transition", gameObj);
