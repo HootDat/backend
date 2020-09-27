@@ -203,7 +203,10 @@ const playerGuessGameEvent = async (
   return gameObj;
 };
 
-const roundEndGameEvent = async (gameCode: string): Promise<any> => {
+const roundEndGameEvent = async (
+  gameCode: string,
+  qnNum: number,
+): Promise<any> => {
   const gameObj = await getAndDeserializeGameObject(gameCode);
   if (!gameObj || Object.keys(gameObj).length === 0)
     throw new Error("No such game exists.");
@@ -214,8 +217,9 @@ const roundEndGameEvent = async (gameCode: string): Promise<any> => {
   // finishes answering.
   // The only issue is if the question has advanced to the next question and
   // is at the PHASE_QN_GUESS phase then the round will end prematurely.
-  // This is extremely unlikely though...
-  if (gameObj.phase !== PHASE_QN_GUESS) throw new Error("Wrong phase.");
+  // This is extremely unlikely though... (resolved with qnNum check)
+  if (gameObj.phase !== PHASE_QN_GUESS || qnNum != gameObj.qnNum)
+    throw new Error("Wrong phase/question.");
 
   gameObj.phase = PHASE_QN_RESULTS;
   Object.keys(gameObj.players).forEach((_cId: any) => {
