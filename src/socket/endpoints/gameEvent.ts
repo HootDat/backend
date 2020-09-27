@@ -188,7 +188,7 @@ const useGameEventEndpoints = (socket: any, io: any) => {
         // let's transition to PHASE_QN_RESULTS of this question
         if (numAnswered >= numOnline) {
           // transition to PHASE_QN_RESULTS of the question
-          gameObj = await roundEndGameEvent(gameCode);
+          gameObj = await roundEndGameEvent(gameCode, gameObj.qnNum);
           io.to(gameCode).emit("game.event.transition", gameObj);
 
           // after ROUND_TIMER_2 ms, transition to the PHASE_QN_ANSWER of the next question
